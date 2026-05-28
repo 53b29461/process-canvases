@@ -1,0 +1,417 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title>アニメ製作パイプライン 時系列タイムライン</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: #eff1f5; font-family: 'Segoe UI', sans-serif; height: 100vh; display: flex; flex-direction: column; }
+
+    header {
+      padding: 8px 14px;
+      background: #e6e9ef;
+      border-bottom: 1px solid #ccd0da;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-shrink: 0;
+    }
+    header h1 { font-size: 13px; color: #1e66f5; }
+
+    .controls { display: flex; gap: 6px; margin-left: auto; }
+    .controls button {
+      background: #ccd0da; border: 1px solid #bcc0cc; color: #4c4f69;
+      border-radius: 6px; padding: 4px 11px; cursor: pointer; font-size: 12px;
+    }
+    .controls button:hover { background: #bcc0cc; }
+    .hint { font-size: 11px; color: #9ca0b0; }
+
+    .legend {
+      display: flex;
+      gap: 12px;
+      padding: 5px 14px;
+      background: #e6e9ef;
+      border-bottom: 1px solid #ccd0da;
+      flex-shrink: 0;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+    .legend-item { display: flex; align-items: center; gap: 5px; font-size: 11px; color: #5c5f73; }
+    .legend-dot { width: 12px; height: 12px; border-radius: 2px; }
+    .legend-sep { color: #bcc0cc; font-size: 14px; }
+    .legend-line { display: flex; align-items: center; gap: 4px; font-size: 11px; color: #5c5f73; }
+    .legend-ph { width: 12px; height: 12px; border-radius: 2px; border: 1px solid #9ca0b0; }
+
+    #cy { flex: 1; }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>アニメ製作パイプライン 時系列タイムライン</h1>
+  <span class="hint">ドラッグ: パン / ホイール: ズーム / Re-layout で再整列</span>
+  <div class="controls">
+    <button onclick="cy.fit()">Fit</button>
+    <button onclick="cy.zoom(cy.zoom() * 1.3); cy.center()">＋</button>
+    <button onclick="cy.zoom(cy.zoom() * 0.75); cy.center()">－</button>
+    <button onclick="cy.layout(layout).run()">Re-layout</button>
+  </div>
+</header>
+
+<div class="legend">
+  <div class="legend-item"><div class="legend-dot" style="background:#e6e9ef;border:2px solid:#1e66f5"></div>START / GOAL</div>
+  <div class="legend-sep">|</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#fff;border:2px solid:#1e66f5"></div>フェーズ区切り</div>
+  <div class="legend-sep">|</div>
+  <div class="legend-item"><div class="legend-ph" style="background:#dce0e8"></div>企画</div>
+  <div class="legend-item"><div class="legend-ph" style="background:#8caaee"></div>脚本</div>
+  <div class="legend-item"><div class="legend-ph" style="background:#74c7ec"></div>絵コンテ</div>
+  <div class="legend-item"><div class="legend-ph" style="background:#fe640b"></div>作画</div>
+  <div class="legend-item"><div class="legend-ph" style="background:#a6e3a1"></div>背景/撮影</div>
+  <div class="legend-item"><div class="legend-ph" style="background:#8839ef"></div>編集/音響</div>
+  <div class="legend-item"><div class="legend-ph" style="background:#df8e1d"></div>完パケ/放送</div>
+  <div class="legend-sep">|</div>
+  <div class="legend-line">
+    <svg width="28" height="10"><line x1="0" y1="5" x2="28" y2="5" stroke="#1e66f5" stroke-width="3"/></svg> 時系列メイン
+  </div>
+  <div class="legend-line">
+    <svg width="28" height="10"><line x1="0" y1="5" x2="28" y2="5" stroke="#6c6f85" stroke-width="2" stroke-dasharray="6,3"/></svg> 並行タスク
+  </div>
+  <div class="legend-line">
+    <svg width="28" height="10"><line x1="0" y1="5" x2="28" y2="5" stroke="#d20f39" stroke-width="2" stroke-dasharray="3,3"/></svg> フィードバック
+  </div>
+</div>
+
+<div id="cy"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/cytoscape@3.30.2/dist/cytoscape.min.js"></script>
+<script>
+const nodes = [
+  // ===== START / GOAL =====
+  { data: { id: 'start', label: 'START' }, classes: 'startgoal' },
+  { data: { id: 'goal',  label: 'GOAL'  }, classes: 'startgoal' },
+
+  // ===== [0] 企画〜グリーンライト (col-white) =====
+  { data: { id: 'ph1-head',  label: '▶︎ 企画\n〜グリーンライト' },  classes: 'phase-head col-white' },
+  { data: { id: 'concept',     label: '企画立案' },                     classes: 'hexagon col-white' },
+  { data: { id: 'source',      label: '原作選定' },                     classes: 'diamond col-white' },
+  { data: { id: 'proposal',    label: '企画書作成\n・予算計算' },        classes: 'barrel col-white' },
+  { data: { id: 'sponsor',     label: 'スポンサー確保' },               classes: 'round   col-white' },
+  { data: { id: 'network',     label: '放送局調整' },                   classes: 'round   col-white' },
+  { data: { id: 'staff-hire',  label: '主要スタッフ確保' },              classes: 'ellipse col-white' },
+  { data: { id: 'greenlight',  label: 'グリーンライト', },              classes: 'diamond col-white' },
+
+  // ===== [*] 制作進行 (col-gray) =====
+  { data: { id: 'prod-desk',   label: '制作進行\n(全工程管理)' },      classes: 'barrel col-gray' },
+
+  // ===== [1] 脚本・デザイン (col-blue) =====
+  { data: { id: 'ph2-head',    label: '▶︎ 脚本\n・デザイン' },        classes: 'phase-head col-blue' },
+  { data: { id: 'series-comp', label: 'シリーズ構成' },                 classes: 'ellipse col-blue' },
+  { data: { id: 'ep-plot',     label: '各話プロット' },                 classes: 'ellipse col-blue' },
+  { data: { id: 'ep-script',   label: '各話脚本作成' },                 classes: 'ellipse col-blue' },
+  { data: { id: 'script-meet', label: '脚本会議', },                    classes: 'diamond col-blue' },
+  { data: { id: 'script-fix',  label: '脚本修正' },                     classes: 'ellipse col-blue' },
+  { data: { id: 'char-design', label: 'キャラデザ', },                  classes: 'round   col-blue' },
+  { data: { id: 'char-ad',     label: '作監修正', },                    classes: 'ellipse col-blue' },
+  { data: { id: 'mecha-design',label: 'メカデザ', },                    classes: 'round   col-blue' },
+  { data: { id: 'art-set',     label: '美術設定', },                    classes: 'round   col-blue' },
+  { data: { id: 'color-design',label: '色彩設計', },                    classes: 'round   col-blue' },
+  { data: { id: 'design-done', label: 'デザイン完了', },                classes: 'hexagon col-blue' },
+
+  // ===== [2] 絵コンテ (col-sky) =====
+  { data: { id: 'ph3-head',    label: '▶︎ 絵コンテ' },                 classes: 'phase-head col-sky' },
+  { data: { id: 'storyboard',  label: '各話絵コンテ' },                 classes: 'ellipse col-sky' },
+  { data: { id: 'sb-check',    label: 'コンテチェック', },              classes: 'diamond col-sky' },
+  { data: { id: 'sb-fix',      label: 'コンテ修正' },                   classes: 'ellipse col-sky' },
+  { data: { id: 'location',    label: 'ロケハン', },                    classes: 'diamond col-sky' },
+  { data: { id: 'layout',      label: 'レイアウト' },                   classes: 'ellipse col-sky' },
+  { data: { id: 'lay-check',   label: 'レイアウト\nチェック', },       classes: 'diamond col-sky' },
+
+  // ===== [3] 作画 (col-orange) =====
+  { data: { id: 'ph4-head',    label: '▶︎ 作画' },                     classes: 'phase-head col-orange' },
+  { data: { id: 'key-anim',    label: '原画', },                        classes: 'ellipse col-orange' },
+  { data: { id: 'ad-check',    label: '作監チェック', },                classes: 'diamond col-orange' },
+  { data: { id: 'key-fix',     label: '原画修正' },                     classes: 'ellipse col-orange' },
+  { data: { id: 'key-anim-2',  label: '第二原画' },                     classes: 'ellipse col-orange' },
+  { data: { id: 'in-between',  label: '動画\n/中割り' },               classes: 'ellipse col-orange' },
+  { data: { id: 'inb-check',   label: '動画検査' },                     classes: 'round   col-orange' },
+  { data: { id: 'inb-fix',     label: '動画修正' },                     classes: 'ellipse col-orange' },
+  { data: { id: 'digital-paint', label: '仕上げ\n/彩色' },             classes: 'ellipse col-orange' },
+  { data: { id: 'paint-check', label: '仕上げ検査', },                  classes: 'round   col-orange' },
+  { data: { id: 'paint-fix',   label: '色修正' },                       classes: 'ellipse col-orange' },
+
+  // ===== [4] 背景・撮影 (col-green) =====
+  { data: { id: 'ph5-head',    label: '▶︎ 背景\n・撮影' },            classes: 'phase-head col-green' },
+  { data: { id: 'bg-art',      label: '背景美術' },                     classes: 'ellipse col-green' },
+  { data: { id: 'comp',        label: '撮影\n/合成' },                 classes: 'ellipse col-green' },
+  { data: { id: 'sfx',         label: '特殊効果' },                     classes: 'round   col-green' },
+  { data: { id: 'cg-integrate',label: '3DCG統合' },                     classes: 'round   col-green' },
+  { data: { id: 'comp-check',  label: '撮影監督\n確認' },              classes: 'diamond col-green' },
+  { data: { id: 'comp-fix',    label: '撮影修正' },                     classes: 'ellipse col-green' },
+  { data: { id: 'crisis',      label: '★ 納期直前\nトラブル！' },     classes: 'diamond col-red' },
+
+  // ===== [5] 編集・音響 (col-mauve) =====
+  { data: { id: 'ph6-head',    label: '▶︎ 編集\n・音響' },            classes: 'phase-head col-mauve' },
+  { data: { id: 'offline-edit',label: 'オフライン\n編集' },            classes: 'ellipse col-mauve' },
+  { data: { id: 'online-edit', label: 'オンライン\n編集' },            classes: 'ellipse col-mauve' },
+  { data: { id: 'voice-rec',   label: 'アフレコ' },                     classes: 'ellipse col-mauve' },
+  { data: { id: 'voice-retake',label: 'アフレコ\nリテイク' },          classes: 'diamond col-mauve' },
+  { data: { id: 'se',          label: '効果音制作' },                   classes: 'round   col-mauve' },
+  { data: { id: 'music',       label: '音楽収録' },                     classes: 'round   col-mauve' },
+  { data: { id: 'music-select',label: '選曲' },                         classes: 'ellipse col-mauve' },
+  { data: { id: 'dub',         label: 'ダビング' },                     classes: 'ellipse col-mauve' },
+
+  // ===== [6] 完パケ〜放送 (col-yellow/col-red) =====
+  { data: { id: 'ph7-head',    label: '▶︎ 完パケ\n〜放送' },          classes: 'phase-head col-yellow' },
+  { data: { id: 'master',      label: '完パケ納品', },                  classes: 'hexagon col-yellow' },
+  { data: { id: 'onair',       label: '放送', },                        classes: 'hexagon col-red' },
+  { data: { id: 'streaming',   label: '配信' },                         classes: 'round   col-red' },
+  { data: { id: 'bd',          label: 'BD/DVD制作' },                   classes: 'round   col-red' },
+  { data: { id: 'merch',       label: 'グッズ制作' },                   classes: 'round   col-red' },
+  { data: { id: 'events',      label: 'イベント' },                     classes: 'round   col-red' },
+  { data: { id: 'project-end', label: '全話放送\n完了！' },            classes: 'hexagon col-yellow' },
+];
+
+const edges = [
+  // ===== START → 企画フェーズ =====
+  { data: { source: 'start',   target: 'ph1-head' }, classes: 'main' },
+
+  // --- [0] 企画〜グリーンライト（時系列メイン） ---
+  { data: { source: 'ph1-head',target: 'concept' },   classes: 'main' },
+  { data: { source: 'concept', target: 'source' },    classes: 'main' },
+  { data: { source: 'source',  target: 'proposal' },  classes: 'main' },
+  { data: { source: 'proposal',target: 'sponsor' },   classes: 'main' },
+  { data: { source: 'sponsor', target: 'network' },   classes: 'main' },
+  { data: { source: 'network', target: 'staff-hire' },classes: 'main' },
+  { data: { source: 'staff-hire', target: 'greenlight' }, classes: 'main' },
+  // グリーンライト → 脚本フェーズ
+  { data: { source: 'greenlight', target: 'ph2-head' }, classes: 'main' },
+
+  // ===== [1] 脚本・デザイン =====
+  // 脚本メインライン
+  { data: { source: 'ph2-head',   target: 'series-comp' },   classes: 'main' },
+  { data: { source: 'series-comp',target: 'ep-plot' },        classes: 'main' },
+  { data: { source: 'ep-plot',    target: 'ep-script' },      classes: 'main' },
+  { data: { source: 'ep-script',  target: 'script-meet' },    classes: 'main' },
+  { data: { source: 'script-meet',target: 'script-fix' },     classes: 'main' },
+  // デザイン並行タスク
+  { data: { source: 'ph2-head',   target: 'char-design' },    classes: 'dashed' },
+  { data: { source: 'ph2-head',   target: 'mecha-design' },   classes: 'dashed' },
+  { data: { source: 'ph2-head',   target: 'art-set' },        classes: 'dashed' },
+  { data: { source: 'ph2-head',   target: 'color-design' },   classes: 'dashed' },
+  { data: { source: 'char-design',target: 'char-ad' },        classes: 'main' },
+  { data: { source: 'char-ad',    target: 'design-done' },    classes: 'dashed' },
+  { data: { source: 'mecha-design',target: 'design-done' },   classes: 'dashed' },
+  { data: { source: 'art-set',    target: 'design-done' },    classes: 'dashed' },
+  { data: { source: 'color-design',target: 'design-done' },   classes: 'dashed' },
+  { data: { source: 'script-fix', target: 'design-done' },    classes: 'main' },
+  // デザイン完了 → 絵コンテフェーズ
+  { data: { source: 'design-done', target: 'ph3-head' },      classes: 'main' },
+
+  // ===== [2] 絵コンテ =====
+  { data: { source: 'ph3-head',    target: 'storyboard' },    classes: 'main' },
+  { data: { source: 'storyboard',  target: 'sb-check' },      classes: 'main' },
+  { data: { source: 'sb-check',    target: 'sb-fix' },        classes: 'main' },
+  { data: { source: 'sb-fix',      target: 'layout' },        classes: 'main' },
+  { data: { source: 'layout',      target: 'lay-check' },     classes: 'main' },
+  // ロケハンは並行
+  { data: { source: 'ph3-head',    target: 'location' },      classes: 'dashed' },
+  { data: { source: 'location',    target: 'layout' },        classes: 'dashed' },
+  // レイアウトチェック完了 → 作画フェーズ
+  { data: { source: 'lay-check',   target: 'ph4-head' },      classes: 'main' },
+
+  // ===== [3] 作画 =====
+  { data: { source: 'ph4-head',    target: 'key-anim' },      classes: 'main' },
+  { data: { source: 'key-anim',    target: 'ad-check' },      classes: 'main' },
+  { data: { source: 'ad-check',    target: 'key-fix' },       classes: 'main' },
+  { data: { source: 'key-fix',     target: 'key-anim-2' },    classes: 'main' },
+  { data: { source: 'key-anim-2',  target: 'in-between' },    classes: 'main' },
+  { data: { source: 'in-between',  target: 'inb-check' },     classes: 'main' },
+  { data: { source: 'inb-check',   target: 'inb-fix' },       classes: 'main' },
+  { data: { source: 'inb-fix',     target: 'digital-paint' }, classes: 'main' },
+  { data: { source: 'digital-paint', target: 'paint-check' }, classes: 'main' },
+  { data: { source: 'paint-check', target: 'paint-fix' },     classes: 'main' },
+  // 作画完了 → 背景・撮影フェーズ
+  { data: { source: 'paint-fix',   target: 'ph5-head' },      classes: 'main' },
+
+  // ===== [4] 背景・撮影 =====
+  { data: { source: 'ph5-head',    target: 'bg-art' },        classes: 'main' },
+  { data: { source: 'bg-art',      target: 'comp' },          classes: 'main' },
+  { data: { source: 'ph5-head',    target: 'sfx' },           classes: 'dashed' },
+  { data: { source: 'ph5-head',    target: 'cg-integrate' },  classes: 'dashed' },
+  { data: { source: 'sfx',         target: 'comp' },          classes: 'dashed' },
+  { data: { source: 'cg-integrate',target: 'comp' },          classes: 'dashed' },
+  { data: { source: 'comp',        target: 'comp-check' },    classes: 'main' },
+  { data: { source: 'comp-check',  target: 'comp-fix' },      classes: 'main' },
+  // 撮影完了 → 編集・音響フェーズ
+  { data: { source: 'comp-fix',    target: 'ph6-head' },      classes: 'main' },
+
+  // ===== [5] 編集・音響 =====
+  { data: { source: 'ph6-head',    target: 'offline-edit' },  classes: 'main' },
+  { data: { source: 'offline-edit',target: 'online-edit' },   classes: 'main' },
+  { data: { source: 'ph6-head',    target: 'voice-rec' },     classes: 'dashed' },
+  { data: { source: 'ph6-head',    target: 'se' },            classes: 'dashed' },
+  { data: { source: 'ph6-head',    target: 'music' },         classes: 'dashed' },
+  { data: { source: 'music',       target: 'music-select' },  classes: 'dashed' },
+  { data: { source: 'online-edit', target: 'dub' },           classes: 'main' },
+  { data: { source: 'voice-rec',   target: 'dub' },           classes: 'dashed' },
+  { data: { source: 'music-select',target: 'dub' },           classes: 'dashed' },
+  { data: { source: 'se',          target: 'dub' },           classes: 'dashed' },
+  // ダビング完了 → 完パケフェーズ
+  { data: { source: 'dub',         target: 'ph7-head' },      classes: 'main' },
+
+  // ===== [6] 完パケ〜放送 =====
+  { data: { source: 'ph7-head',    target: 'master' },        classes: 'main' },
+  { data: { source: 'master',      target: 'onair' },         classes: 'main' },
+  { data: { source: 'onair',       target: 'project-end' },   classes: 'main' },
+  // 放送後並行タスク
+  { data: { source: 'ph7-head',    target: 'streaming' },     classes: 'dashed' },
+  { data: { source: 'ph7-head',    target: 'bd' },            classes: 'dashed' },
+  { data: { source: 'ph7-head',    target: 'merch' },         classes: 'dashed' },
+  { data: { source: 'ph7-head',    target: 'events' },        classes: 'dashed' },
+  { data: { source: 'master',      target: 'streaming' },     classes: 'dashed' },
+  { data: { source: 'master',      target: 'bd' },            classes: 'dashed' },
+  { data: { source: 'master',      target: 'merch' },         classes: 'dashed' },
+  { data: { source: 'master',      target: 'events' },        classes: 'dashed' },
+  // GOAL
+  { data: { source: 'project-end', target: 'goal' },          classes: 'main' },
+
+  // ===== フィードバック（赤破線） =====
+  { data: { source: 'script-meet', target: 'ep-script', label: 'NG→修正' },   classes: 'fb' },
+  { data: { source: 'sb-check',    target: 'storyboard', label: 'コンテ戻し' }, classes: 'fb' },
+  { data: { source: 'ad-check',    target: 'key-anim', label: '原画戻し' },    classes: 'fb' },
+  { data: { source: 'inb-check',   target: 'in-between', label: '動画戻し' },  classes: 'fb' },
+  { data: { source: 'paint-check', target: 'digital-paint', label: '色戻し' }, classes: 'fb' },
+  { data: { source: 'comp-check',  target: 'comp', label: '撮影戻し' },        classes: 'fb' },
+  { data: { source: 'voice-retake',target: 'voice-rec', label: 'リテイク' },   classes: 'fb' },
+  { data: { source: 'ad-check',    target: 'crisis', label: '遅延→トラブル' }, classes: 'fb' },
+  { data: { source: 'crisis',      target: 'key-anim', label: '総力戦で修正' }, classes: 'fb' },
+  { data: { source: 'crisis',      target: 'master', label: '滑り込み' },       classes: 'fb' },
+
+  // ===== 制作進行（prod-desk）管理線 =====
+  { data: { source: 'prod-desk', target: 'greenlight', label: '管理' },    classes: 'dashed' },
+  { data: { source: 'prod-desk', target: 'design-done', label: '管理' },   classes: 'dashed' },
+  { data: { source: 'prod-desk', target: 'storyboard', label: '管理' },    classes: 'dashed' },
+  { data: { source: 'prod-desk', target: 'master', label: '管理' },        classes: 'dashed' },
+  { data: { source: 'prod-desk', target: 'onair', label: '管理' },         classes: 'dashed' },
+  { data: { source: 'prod-desk', target: 'project-end', label: '管理' },   classes: 'dashed' },
+];
+
+const elements = { nodes, edges };
+const layout = {
+  name: 'cose',
+  nodeRepulsion: 18000,
+  idealEdgeLength: 170,
+  gravity: 0.6,
+  numIter: 1000,
+  animate: true,
+  animationDuration: 500
+};
+
+const cy = cytoscape({
+  container: document.getElementById('cy'),
+  elements,
+  style: [
+    {
+      selector: 'node',
+      style: {
+        label: 'data(label)',
+        'text-wrap': 'wrap',
+        'text-max-width': 100,
+        'font-size': '12px',
+        'font-family': '"Noto Sans JP", "Segoe UI", sans-serif',
+        color: '#4c4f69',
+        'text-halign': 'center',
+        'text-valign': 'center',
+        'font-weight': 'bold',
+        'border-width': 2,
+        'border-color': '#9ca0b0',
+        width: 120,
+        height: 72,
+      }
+    },
+    // START / GOAL
+    {
+      selector: '.startgoal',
+      style: {
+        'background-color': '#e6e9ef',
+        'border-color': '#1e66f5',
+        'border-width': 4,
+        color: '#1e66f5',
+        'font-size': '16px',
+        shape: 'round-octagon',
+        width: 100,
+        height: 70,
+      }
+    },
+    // Phase headers
+    {
+      selector: '.phase-head',
+      style: {
+        'border-width': 3,
+        'border-color': '#1e66f5',
+        'font-size': '12px',
+        width: 110,
+        height: 55,
+        shape: 'round-tag',
+      }
+    },
+    // Phase colors (Catppuccin Latte)
+    { selector: '.col-white',  style: { 'background-color': '#dce0e8', 'border-color': '#bcc0cc' } },
+    { selector: '.col-blue',   style: { 'background-color': '#8caaee', 'border-color': '#7c9ae6', color: '#222' } },
+    { selector: '.col-sky',    style: { 'background-color': '#74c7ec', 'border-color': '#5bb9e3', color: '#222' } },
+    { selector: '.col-orange', style: { 'background-color': '#fe640b', 'border-color': '#e65a0a', color: '#fff' } },
+    { selector: '.col-green',  style: { 'background-color': '#a6e3a1', 'border-color': '#85d687', color: '#333' } },
+    { selector: '.col-mauve',  style: { 'background-color': '#8839ef', 'border-color': '#7731d8', color: '#fff' } },
+    { selector: '.col-red',    style: { 'background-color': '#d20f39', 'border-color': '#bb0d33', color: '#fff' } },
+    { selector: '.col-gray',   style: { 'background-color': '#6c6f85', 'border-color': '#5c5f73', color: '#e6e9ef' } },
+    { selector: '.col-yellow', style: { 'background-color': '#df8e1d', 'border-color': '#c8801a', 'border-width': 3, color: '#222' } },
+    // Shapes
+    { selector: '.ellipse', style: { shape: 'ellipse' } },
+    { selector: '.hexagon', style: { shape: 'hexagon', width: 130, height: 80 } },
+    { selector: '.diamond', style: { shape: 'diamond', width: 100, height: 90 } },
+    { selector: '.round',   style: { shape: 'roundrectangle' } },
+    { selector: '.barrel',  style: { shape: 'round-rectangle', width: 140, height: 80 } },
+    // Edges
+    {
+      selector: 'edge',
+      style: {
+        width: 2,
+        'line-color': '#6c6f85',
+        'target-arrow-color': '#6c6f85',
+        'target-arrow-shape': 'triangle',
+        'arrow-scale': 1,
+        'curve-style': 'bezier',
+        label: 'data(label)',
+        'font-size': '10px',
+        color: '#5c5f73',
+        'text-background-color': '#eff1f5',
+        'text-background-opacity': 0.85,
+        'text-background-padding': 2,
+      }
+    },
+    { selector: '.main',   style: { width: 4, 'line-color': '#1e66f5', 'target-arrow-color': '#1e66f5', 'z-index': 10 } },
+    { selector: '.dashed', style: { 'line-style': 'dashed', 'line-dash-pattern': [6,4], 'z-index': 5 } },
+    {
+      selector: '.fb',
+      style: {
+        'line-style': 'dashed',
+        'line-dash-pattern': [3, 3],
+        width: 2.5,
+        'line-color': '#d20f39',
+        'target-arrow-color': '#d20f39',
+        'z-index': 15,
+        'target-arrow-shape': 'triangle-backcurve',
+        color: '#d20f39',
+      }
+    },
+    { selector: 'node:selected', style: { 'border-color': '#df8e1d', 'border-width': 3 } },
+  ],
+  layout,
+  wheelSensitivity: 0.3,
+  minZoom: 0.2,
+  maxZoom: 4,
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title>引越し タスク依存関係グラフ v2</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: #eff1f5; font-family: 'Segoe UI', sans-serif; height: 100vh; display: flex; flex-direction: column; }
+    header { padding: 8px 14px; background: #e6e9ef; border-bottom: 1px solid #ccd0da; display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+    header h1 { font-size: 13px; color: #1e66f5; }
+    .controls { display: flex; gap: 6px; margin-left: auto; }
+    .controls button { background: #ccd0da; border: 1px solid #bcc0cc; color: #4c4f69; border-radius: 6px; padding: 4px 11px; cursor: pointer; font-size: 12px; }
+    .controls button:hover { background: #bcc0cc; }
+    .hint { font-size: 11px; color: #9ca0b0; }
+    .legend { display: flex; gap: 12px; padding: 5px 14px; background: #e6e9ef; border-bottom: 1px solid #ccd0da; flex-shrink: 0; flex-wrap: wrap; align-items: center; }
+    .legend-item { display: flex; align-items: center; gap: 5px; font-size: 11px; color: #5c5f73; }
+    .legend-dot { width: 12px; height: 12px; border-radius: 2px; }
+    .legend-sep { color: #bcc0cc; font-size: 14px; }
+    .legend-line { display: flex; align-items: center; gap: 4px; font-size: 11px; color: #5c5f73; }
+    #cy { flex: 1; }
+  </style>
+</head>
+<body>
+<header>
+  <h1>引越し タスク依存関係 v2 — AND結合＋マルチペアレント</h1>
+  <span class="hint">ドラッグ: パン / ホイール: ズーム</span>
+  <div class="controls">
+    <button onclick="cy.fit()">Fit</button>
+    <button onclick="cy.zoom(cy.zoom()*1.4);cy.center()">＋</button>
+    <button onclick="cy.zoom(cy.zoom()*0.7);cy.center()">－</button>
+    <button onclick="cy.layout(layout).run()">Re-layout</button>
+  </div>
+</header>
+<div class="legend">
+  <div class="legend-item"><div class="legend-dot" style="background:#e6e9ef;border:2px solid:#1e66f5"></div>START / GOAL</div>
+  <div class="legend-sep">|</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#fff;border:2px solid:#1e66f5"></div>マイルストーン</div>
+  <div class="legend-sep">|</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#dce0e8;border:1px solid:#bcc0cc"></div>計画</div>
+  <div class="legend-sep">|</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#8caaee"></div>新居契約</div>
+  <div class="legend-sep">|</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#fe640b"></div>旧居</div>
+  <div class="legend-sep">|</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#a6e3a1"></div>荷造り</div>
+  <div class="legend-sep">|</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#8839ef"></div>手続き</div>
+  <div class="legend-sep">|</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#74c7ec"></div>当日</div>
+  <div class="legend-sep">|</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#df8e1d"></div>引越し後</div>
+  <div class="legend-sep">|</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#d20f39"></div>トラブル</div>
+  <div class="legend-sep">|</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#40a02b;border:2px dashed:#1e66f5"></div>ANDゲート</div>
+  <div class="legend-sep">|</div>
+  <div class="legend-line"><svg width="28" height="10"><line x1="0" y1="5" x2="28" y2="5" stroke="#1e66f5" stroke-width="3"/></svg> 依存(必須)</div>
+  <div class="legend-line"><svg width="28" height="10"><line x1="0" y1="5" x2="28" y2="5" stroke="#6c6f85" stroke-width="2" stroke-dasharray="6,3"/></svg> 並行(任意)</div>
+  <div class="legend-line"><svg width="28" height="10"><line x1="0" y1="5" x2="28" y2="5" stroke="#d20f39" stroke-width="2" stroke-dasharray="3,3"/></svg> フィードバック</div>
+</div>
+<div id="cy"></div>
+<script src="https://cdn.jsdelivr.net/npm/cytoscape@3.30.2/dist/cytoscape.min.js"></script>
+<script>
+const nodes = [
+  // ===== START / GOAL =====
+  { data: { id: 'start', label: 'START' }, classes: 'startgoal' },
+  { data: { id: 'goal',  label: 'GOAL'  }, classes: 'startgoal' },
+
+  // ===== 計画（家探し〜契約） =====
+  { data: { id: 'decide',    label: '引越し\n決意・決断' },           classes: 'diamond col-plan' },
+  { data: { id: 'budget',    label: '予算・条件整理\n(エリア/広さ/\n家賃上限)', },  classes: 'barrel col-plan' },
+  { data: { id: 'hunt',      label: '新居探し\n・内見', },            classes: 'ellipse col-plan' },
+  { data: { id: 'apply',     label: '申し込み\n・入居審査', },        classes: 'diamond col-contract' },
+  { data: { id: 'rejected',  label: '審査落ち\n→再検索', },          classes: 'diamond col-red' },
+  { data: { id: 'contract',  label: '賃貸契約\n・入金', },            classes: 'round   col-contract' },
+
+  // ★ マイルストーン1
+  { data: { id: 'date-set',  label: '引越し日\n確定！', },            classes: 'hexagon milestone' },
+
+  // ===== 旧居処理 (col-old) =====
+  { data: { id: 'cancel',    label: '現住所\n解約通知\n(1ヶ月前まで)', },   classes: 'ellipse col-old' },
+  { data: { id: 'restore',   label: '原状回復\n・壁紙補修\n・クリーニング', }, classes: 'ellipse col-old' },
+  { data: { id: 'clean-old', label: '旧居清掃\n(搬出後)', },               classes: 'ellipse col-old' },
+  { data: { id: 'inspect',   label: '旧居立会い\n・鍵返却\n(当日)', },      classes: 'diamond col-old' },
+  { data: { id: 'deposit',   label: '敷金精算\n(後日)', },                 classes: 'round   col-old' },
+
+  // ===== 業者手配 =====
+  { data: { id: 'm-quote',   label: '引越し業者\n見積もり比較\n(2〜3社)', },   classes: 'diamond col-plan' },
+  { data: { id: 'm-book',    label: '業者発注\n・日程確定', },                 classes: 'round   col-plan' },
+
+  // ===== 荷造り (col-pack) =====
+  { data: { id: 'declutter',    label: '不用品処分\n(売る/捨てる/\n譲る/寄付)', },      classes: 'ellipse col-pack' },
+  { data: { id: 'pack-supply',  label: '梱包材調達\n(段ボール/テープ/\n緩衝材/マジック)', }, classes: 'round   col-pack' },
+  { data: { id: 'pack-1',       label: '荷造り①\n(非日常品)\n本・服・飾り物', },          classes: 'ellipse col-pack' },
+  { data: { id: 'pack-2',       label: '荷造り②\n(中頻度品)\n調理器具・予備日用品', },      classes: 'ellipse col-pack' },
+  { data: { id: 'valuables',    label: '貴重品・\n重要書類を\nひとまとめに', },             classes: 'diamond col-pack' },
+  { data: { id: 'pack-3',       label: '荷造り③\n(最終日用品)\n当日使う分だけ残す', },      classes: 'ellipse col-pack' },
+
+  // ===== 手続き (col-paper) =====
+  { data: { id: 'moveout',    label: '転出届\n(旧市区町村)', },          classes: 'round   col-paper' },
+  { data: { id: 'movein',     label: '転入届\n(新市区町村)\n14日以内', },  classes: 'round   col-paper' },
+  { data: { id: 'util-stop',  label: '旧居\nライフライン\n停止連絡', },    classes: 'round   col-paper' },
+  { data: { id: 'util-order', label: '新居\nライフライン\n開通手配', },    classes: 'round   col-paper' },
+  { data: { id: 'internet',   label: 'インターネット\n移転手続き', },     classes: 'round   col-paper' },
+  { data: { id: 'address',    label: '住所変更一括\n(銀行/クレカ/\n保険/サブスク)', }, classes: 'barrel col-paper' },
+  { data: { id: 'mail-fwd',   label: '郵便転送\n申請', },                classes: 'round   col-paper' },
+  { data: { id: 'work',       label: '職場・学校に\n住所変更届', },       classes: 'round   col-paper' },
+  { data: { id: 'school',     label: '転校・転園\n手続き(該当時)', },     classes: 'round   col-paper' },
+
+  // ===== ★ ANDゲート（複数前提の合流点） =====
+  { data: { id: 'load-ready', label: '搬出準備OK！\n▸ 業者発注済み\n▸ 荷造り完了\n▸ 貴重品まとめ完了' }, classes: 'hexagon andgate' },
+  { data: { id: 'old-clear',  label: '旧居明渡しOK！\n▸ 搬出完了\n▸ 清掃完了' },              classes: 'hexagon andgate' },
+  { data: { id: 'life-ready', label: '生活基盤OK！\n▸ 寝床確保\n▸ 転入届\n▸ 買い出し完了' },    classes: 'hexagon andgate' },
+
+  // ===== 当日 (col-move) =====
+  { data: { id: 'load-out',   label: '業者到着\n・搬出', },               classes: 'ellipse col-move' },
+  { data: { id: 'key-get',    label: '新居到着\n・鍵受け取り', },          classes: 'hexagon col-move' },
+  { data: { id: 'load-in',    label: '新居へ\n搬入', },                   classes: 'ellipse col-move' },
+  { data: { id: 'util-on',    label: 'ガス立会い\n・水道/電気\n開通確認', }, classes: 'round   col-move' },
+  { data: { id: 'furniture',  label: '家具配置\n・大型家電\n設置', },      classes: 'ellipse col-move' },
+  { data: { id: 'bed-prep',   label: '寝床確保\n(最優先!)', },             classes: 'diamond col-move' },
+  { data: { id: 'trouble',    label: '引越し\nトラブル！\n(雨天/渋滞/破損)', }, classes: 'diamond col-red' },
+
+  // ===== 引越し後 (col-after) =====
+  { data: { id: 'unpack',     label: '荷解き\n(段ボール片付け)', },    classes: 'ellipse col-after' },
+  { data: { id: 'shopping',   label: '足りないもの\n買い出し', },      classes: 'round   col-after' },
+  { data: { id: 'neighbor',   label: '近隣挨拶', },                   classes: 'round   col-after' },
+  { data: { id: 'settle',     label: '新生活\n定着！', },               classes: 'hexagon col-after' },
+  { data: { id: 'old-close',  label: '旧居関連\n完全クローズ', },       classes: 'round   col-after' },
+];
+
+const edges = [
+  // =====【フェーズ0: 家探し〜契約】=====
+  { data: { source: 'start',   target: 'decide' },    classes: 'main' },
+  { data: { source: 'decide',  target: 'budget' },    classes: 'main' },
+  { data: { source: 'budget',  target: 'hunt' },      classes: 'main' },
+  { data: { source: 'hunt',    target: 'apply' },     classes: 'main' },
+  { data: { source: 'apply',   target: 'contract' },  classes: 'main' },
+
+  // 審査フィードバック
+  { data: { source: 'apply',    target: 'rejected' },  classes: 'fb' },
+  { data: { source: 'rejected', target: 'hunt', label: '別物件' }, classes: 'fb' },
+
+  // 契約→日付確定
+  { data: { source: 'contract', target: 'date-set' },  classes: 'main' },
+
+  // =====【引越し日確定 → 各ストリーム分岐】=====
+
+  // --- ストリームA: 旧居処理 ---
+  { data: { source: 'date-set', target: 'cancel' },    classes: 'main' },
+  { data: { source: 'cancel',   target: 'restore' },   classes: 'dashed' },
+
+  // --- ストリームB: 業者手配 ---
+  { data: { source: 'date-set', target: 'm-quote' },   classes: 'main' },
+  { data: { source: 'm-quote',  target: 'm-book' },    classes: 'main' },
+
+  // --- ストリームC: 荷造り (並行スタート) ---
+  { data: { source: 'date-set',   target: 'declutter' },   classes: 'dashed' },
+
+  // 荷造りチェーン
+  { data: { source: 'declutter',  target: 'pack-supply' }, classes: 'main' },
+  { data: { source: 'declutter',  target: 'pack-2' },      classes: 'main' },
+  { data: { source: 'declutter',  target: 'valuables' },   classes: 'dashed' },
+  { data: { source: 'pack-supply',target: 'pack-1' },      classes: 'main' },
+  { data: { source: 'pack-1',     target: 'pack-2' },      classes: 'main' },
+  { data: { source: 'pack-2',     target: 'pack-3' },      classes: 'main' },
+
+  // --- ストリームD: 手続き群 (date-setから並行) ---
+  { data: { source: 'date-set', target: 'moveout' },   classes: 'main' },
+  { data: { source: 'date-set', target: 'util-stop' }, classes: 'dashed' },
+  { data: { source: 'date-set', target: 'util-order' },classes: 'dashed' },
+  { data: { source: 'date-set', target: 'internet' },  classes: 'dashed' },
+  { data: { source: 'date-set', target: 'address' },   classes: 'dashed' },
+  { data: { source: 'date-set', target: 'mail-fwd' },  classes: 'dashed' },
+  { data: { source: 'date-set', target: 'work' },      classes: 'dashed' },
+  { data: { source: 'date-set', target: 'school' },    classes: 'dashed' },
+  // 転出→転入の順序依存
+  { data: { source: 'moveout',   target: 'movein' },    classes: 'main' },
+
+  // =====【 ANDゲート①: 搬出準備OK 】=====
+  { data: { source: 'm-book',     target: 'load-ready' },  classes: 'main' },
+  { data: { source: 'pack-3',     target: 'load-ready' },  classes: 'main' },
+  { data: { source: 'valuables',  target: 'load-ready' },  classes: 'main' },
+
+  // =====【当日】=====
+  // 準備完了→搬出
+  { data: { source: 'load-ready', target: 'load-out' },    classes: 'main' },
+
+  // 旧居ルート（搬出→清掃→明渡しゲート→立会い）
+  { data: { source: 'load-out',   target: 'clean-old' },   classes: 'main' },
+  { data: { source: 'restore',    target: 'clean-old' },   classes: 'dashed' },
+
+  // 新居ルート（搬出→新居移動→鍵受取→搬入）
+  { data: { source: 'load-out',   target: 'key-get' },     classes: 'main' },
+
+  // =====【 ANDゲート②: 旧居明渡しOK 】=====
+  { data: { source: 'load-out',   target: 'old-clear' },   classes: 'main' },
+  { data: { source: 'clean-old',  target: 'old-clear' },   classes: 'main' },
+  { data: { source: 'old-clear',  target: 'inspect' },     classes: 'main' },
+
+  // 立会い→敷金精算
+  { data: { source: 'inspect',    target: 'deposit' },     classes: 'main' },
+  { data: { source: 'deposit',    target: 'old-close' },   classes: 'main' },
+
+  // 搬入に必要なもの: 鍵 + 荷物到着(搬出完了)
+  { data: { source: 'key-get',    target: 'load-in' },     classes: 'main' },
+  { data: { source: 'load-out',   target: 'load-in' },     classes: 'main' },
+
+  // 新居セットアップ
+  { data: { source: 'load-in',    target: 'bed-prep' },    classes: 'main' },
+  { data: { source: 'load-in',    target: 'util-on' },     classes: 'main' },
+  { data: { source: 'util-order', target: 'util-on' },     classes: 'main' },
+  { data: { source: 'load-in',    target: 'furniture' },   classes: 'main' },
+  { data: { source: 'util-on',    target: 'furniture' },   classes: 'main' },
+
+  // トラブル
+  { data: { source: 'load-out',   target: 'trouble', label: '雨天/渋滞' }, classes: 'fb' },
+  { data: { source: 'load-in',    target: 'trouble', label: '破損/不足' }, classes: 'fb' },
+  { data: { source: 'trouble',    target: 'load-in', label: '対応後再開' }, classes: 'fb' },
+
+  // =====【引越し後】=====
+  { data: { source: 'bed-prep',   target: 'unpack' },      classes: 'main' },
+  { data: { source: 'unpack',     target: 'shopping' },    classes: 'dashed' },
+  { data: { source: 'unpack',     target: 'neighbor' },    classes: 'dashed' },
+
+  // =====【 ANDゲート③: 生活基盤OK 】=====
+  { data: { source: 'bed-prep',   target: 'life-ready' },  classes: 'main' },
+  { data: { source: 'movein',     target: 'life-ready' },  classes: 'main' },
+  { data: { source: 'shopping',   target: 'life-ready' },  classes: 'main' },
+
+  // 定着には生活基盤＋近隣挨拶＋旧居クローズ
+  { data: { source: 'life-ready', target: 'settle' },      classes: 'main' },
+  { data: { source: 'neighbor',   target: 'settle' },      classes: 'dashed' },
+  { data: { source: 'old-close',  target: 'settle' },      classes: 'dashed' },
+
+  // GOAL
+  { data: { source: 'settle', target: 'goal' }, classes: 'main' },
+];
+
+const elements = { nodes, edges };
+const layout = {
+  name: 'cose',
+  nodeRepulsion: 20000,
+  idealEdgeLength: 190,
+  gravity: 0.7,
+  numIter: 1200,
+  animate: true,
+  animationDuration: 500
+};
+
+const cy = cytoscape({
+  container: document.getElementById('cy'),
+  elements,
+  style: [
+    { selector: 'node', style: { label: 'data(label)', 'text-wrap': 'wrap', 'text-max-width': 110, 'font-size': '12px', 'font-family': '"Noto Sans JP","Segoe UI",sans-serif', color: '#4c4f69', 'text-halign': 'center', 'text-valign': 'center', 'font-weight': 'bold', 'border-width': 2, 'border-color': '#9ca0b0', width: 130, height: 78 } },
+    { selector: '.startgoal', style: { 'background-color': '#e6e9ef', 'border-color': '#1e66f5', 'border-width': 4, color: '#1e66f5', 'font-size': '16px', shape: 'round-octagon', width: 100, height: 70 } },
+    { selector: '.milestone', style: { 'background-color': '#fff', 'border-color': '#1e66f5', 'border-width': 4, 'font-size': '11px', width: 130, height: 75, shape: 'hexagon' } },
+    { selector: '.andgate', style: { 'background-color': '#fff', 'border-color': '#40a02b', 'border-width': 4, 'border-style': 'dashed', 'font-size': '11px', width: 150, height: 85, shape: 'hexagon', color: '#196c21'} },
+    { selector: '.col-plan',    style: { 'background-color': '#dce0e8', 'border-color': '#bcc0cc' } },
+    { selector: '.col-contract',style: { 'background-color': '#8caaee', 'border-color': '#7c9ae6', color: '#222' } },
+    { selector: '.col-move',    style: { 'background-color': '#74c7ec', 'border-color': '#5bb9e3', color: '#222' } },
+    { selector: '.col-old',     style: { 'background-color': '#fe640b', 'border-color': '#e65a0a', color: '#fff' } },
+    { selector: '.col-pack',    style: { 'background-color': '#a6e3a1', 'border-color': '#85d687', color: '#333' } },
+    { selector: '.col-paper',   style: { 'background-color': '#8839ef', 'border-color': '#7731d8', color: '#fff' } },
+    { selector: '.col-red',     style: { 'background-color': '#d20f39', 'border-color': '#bb0d33', color: '#fff' } },
+    { selector: '.col-after',   style: { 'background-color': '#df8e1d', 'border-color': '#c8801a', 'border-width': 3, color: '#222' } },
+    { selector: '.ellipse', style: { shape: 'ellipse' } },
+    { selector: '.hexagon', style: { shape: 'hexagon', width: 140, height: 85 } },
+    { selector: '.diamond', style: { shape: 'diamond', width: 110, height: 95 } },
+    { selector: '.round',   style: { shape: 'roundrectangle' } },
+    { selector: '.barrel',  style: { shape: 'round-rectangle', width: 150, height: 85 } },
+    { selector: 'edge', style: { width: 2, 'line-color': '#6c6f85', 'target-arrow-color': '#6c6f85', 'target-arrow-shape': 'triangle', 'arrow-scale': 1, 'curve-style': 'bezier', label: 'data(label)', 'font-size': '10px', color: '#5c5f73', 'text-background-color': '#eff1f5', 'text-background-opacity': 0.85, 'text-background-padding': 2 } },
+    { selector: '.main',   style: { width: 4, 'line-color': '#1e66f5', 'target-arrow-color': '#1e66f5', 'z-index': 10 } },
+    { selector: '.dashed', style: { 'line-style': 'dashed', 'line-dash-pattern': [6,4], 'z-index': 5 } },
+    { selector: '.fb',     style: { 'line-style': 'dashed', 'line-dash-pattern': [3,3], width: 2.5, 'line-color': '#d20f39', 'target-arrow-color': '#d20f39', 'z-index': 15, 'target-arrow-shape': 'triangle-backcurve', color: '#d20f39' } },
+    { selector: 'node:selected', style: { 'border-color': '#df8e1d', 'border-width': 3 } },
+  ],
+  layout,
+  wheelSensitivity: 0.3,
+  minZoom: 0.15,
+  maxZoom: 5,
+});
+</script>
+</body>
+</html>

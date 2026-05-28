@@ -1,0 +1,461 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title>アニメ制作パイプライン（ANDゲート版）</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: #eff1f5; font-family: 'Segoe UI', sans-serif; height: 100vh; display: flex; flex-direction: column; }
+
+    header {
+      padding: 8px 14px;
+      background: #e6e9ef;
+      border-bottom: 1px solid #ccd0da;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-shrink: 0;
+    }
+    header h1 { font-size: 13px; color: #1e66f5; }
+
+    .controls { display: flex; gap: 6px; margin-left: auto; }
+    .controls button {
+      background: #ccd0da; border: 1px solid #bcc0cc; color: #4c4f69;
+      border-radius: 6px; padding: 4px 11px; cursor: pointer; font-size: 12px;
+    }
+    .controls button:hover { background: #bcc0cc; }
+    .hint { font-size: 11px; color: #9ca0b0; }
+
+    .legend {
+      display: flex;
+      gap: 12px;
+      padding: 5px 14px;
+      background: #e6e9ef;
+      border-bottom: 1px solid #ccd0da;
+      flex-shrink: 0;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+    .legend-item { display: flex; align-items: center; gap: 5px; font-size: 11px; color: #5c5f73; }
+    .legend-dot { width: 12px; height: 12px; border-radius: 2px; }
+    .legend-sep { color: #bcc0cc; font-size: 14px; }
+    .legend-line { display: flex; align-items: center; gap: 4px; font-size: 11px; color: #5c5f73; }
+
+    #cy { flex: 1; }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>アニメ制作パイプライン — ANDゲート版</h1>
+  <span class="hint">ドラッグ: パン / ホイール: ズーム / Re-layout で再整列</span>
+  <div class="controls">
+    <button onclick="cy.fit()">Fit</button>
+    <button onclick="cy.zoom(cy.zoom() * 1.3); cy.center()">＋</button>
+    <button onclick="cy.zoom(cy.zoom() * 0.75); cy.center()">－</button>
+    <button onclick="cy.layout(layout).run()">Re-layout</button>
+  </div>
+</header>
+
+<div class="legend">
+  <div class="legend-item"><div class="legend-dot" style="background:#e6e9ef;border:2px solid:#1e66f5"></div>START / GOAL</div>
+  <div class="legend-sep">|</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#dce0e8;border:1px solid:#bcc0cc"></div>企画</div>
+  <div class="legend-sep">|</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#8caaee"></div>脚本・デザイン</div>
+  <div class="legend-sep">|</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#74c7ec"></div>絵コンテ</div>
+  <div class="legend-sep">|</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#fe640b"></div>作画</div>
+  <div class="legend-sep">|</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#a6e3a1"></div>背景・撮影</div>
+  <div class="legend-sep">|</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#8839ef"></div>音響・編集</div>
+  <div class="legend-sep">|</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#d20f39;color:#fff"></div>完パケ・放送</div>
+  <div class="legend-sep">|</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#6c6f85"></div>制作進行</div>
+  <div class="legend-sep">|</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#fff;border:2px solid:#1e66f5"></div>マイルストーン</div>
+  <div class="legend-sep">|</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#fff;border:2px dashed #40a02b"></div>ANDゲート</div>
+  <div class="legend-sep">|</div>
+  <div class="legend-line">
+    <svg width="28" height="10"><line x1="0" y1="5" x2="28" y2="5" stroke="#1e66f5" stroke-width="3"/></svg> メイン
+  </div>
+  <div class="legend-line">
+    <svg width="28" height="10"><line x1="0" y1="5" x2="28" y2="5" stroke="#6c6f85" stroke-width="2" stroke-dasharray="6,3"/></svg> 並行
+  </div>
+  <div class="legend-line">
+    <svg width="28" height="10"><line x1="0" y1="5" x2="28" y2="5" stroke="#d20f39" stroke-width="2" stroke-dasharray="3,3"/></svg> フィードバック
+  </div>
+</div>
+
+<div id="cy"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/cytoscape@3.30.2/dist/cytoscape.min.js"></script>
+<script>
+const nodes = [
+  // ===== START / GOAL =====
+  { data: { id: 'start',        label: 'START' },  classes: 'startgoal' },
+  { data: { id: 'goal',         label: 'GOAL' },   classes: 'startgoal' },
+
+  // ===== 制作進行 =====
+  { data: { id: 'prod-desk',     label: '制作進行\nスケジュール管理\n外注・予算管理\n(全工程と連絡調整)' }, classes: 'barrel col-gray' },
+
+  // ===== 企画 =====
+  { data: { id: 'concept',       label: '企画立案' },         classes: 'hexagon col-white' },
+  { data: { id: 'source',        label: '原作選定\n(漫画・LN・オリジナル)' }, classes: 'diamond col-white' },
+  { data: { id: 'proposal',      label: '企画書作成\n予算計算' }, classes: 'barrel  col-white' },
+  { data: { id: 'sponsor',       label: 'スポンサー確保' },    classes: 'round   col-white' },
+  { data: { id: 'network',       label: '放送局調整\n(枠確保)' }, classes: 'round   col-white' },
+  { data: { id: 'staff-hire',    label: '主要スタッフ確保\n(監督・シリーズ構成)' }, classes: 'ellipse col-white' },
+  { data: { id: 'greenlight',    label: 'グリーンライト\n(制作正式決定)' }, classes: 'diamond col-white' },
+
+  // ===== 脚本 =====
+  { data: { id: 'series-comp',   label: 'シリーズ構成\n(全話プロット)' }, classes: 'ellipse col-blue' },
+  { data: { id: 'ep-plot',       label: '各話プロット' },      classes: 'ellipse col-blue' },
+  { data: { id: 'ep-script',     label: '各話脚本作成' },      classes: 'ellipse col-blue' },
+  { data: { id: 'script-meet',   label: '脚本会議' },           classes: 'diamond col-blue' },
+  { data: { id: 'script-fix',    label: '脚本修正' },           classes: 'ellipse col-blue' },
+
+  // ===== デザイン =====
+  { data: { id: 'char-design',   label: 'キャラクター\nデザイン' }, classes: 'round   col-blue' },
+  { data: { id: 'char-ad',       label: '作監修正\n(キャラ統一)' }, classes: 'ellipse col-blue' },
+  { data: { id: 'mecha-design',  label: 'メカ・プロップ\nデザイン' }, classes: 'round   col-blue' },
+  { data: { id: 'art-set',       label: '美術設定\n(世界観)' },  classes: 'round   col-blue' },
+  { data: { id: 'color-design',  label: '色彩設計\n(色指定)' },  classes: 'round   col-blue' },
+
+  // ==== ANDゲート: デザイン完了 ====
+  { data: { id: 'design-ready',  label: 'デザイン完了OK！\n▸ 作監修正完了\n▸ メカデザイン完了\n▸ 美術設定完了\n▸ 色彩設計完了' }, classes: 'hexagon andgate' },
+  { data: { id: 'design-done',   label: 'デザイン完了\n(各デザイン統合)' }, classes: 'hexagon milestone' },
+
+  // ===== 絵コンテ =====
+  { data: { id: 'storyboard',    label: '各話絵コンテ' },      classes: 'ellipse col-sky' },
+  { data: { id: 'sb-check',      label: 'コンテチェック\n(監督確認)' }, classes: 'diamond col-sky' },
+  { data: { id: 'sb-fix',        label: 'コンテ修正' },         classes: 'ellipse col-sky' },
+  { data: { id: 'location',      label: 'ロケハン' },            classes: 'diamond col-sky' },
+  { data: { id: 'layout',        label: 'レイアウト\n(画面設計)' }, classes: 'ellipse col-sky' },
+  { data: { id: 'lay-check',     label: 'レイアウト\nチェック' }, classes: 'diamond col-sky' },
+
+  // ===== 作画 =====
+  { data: { id: 'key-anim',      label: '原画\n(キーアニメーション)' }, classes: 'ellipse col-orange' },
+  { data: { id: 'ad-check',      label: '作画監督\nチェック・赤入れ' }, classes: 'diamond col-orange' },
+  { data: { id: 'key-fix',       label: '原画修正\n(戻し対応)' }, classes: 'ellipse col-orange' },
+  { data: { id: 'key-anim-2',    label: '第二原画' },           classes: 'ellipse col-orange' },
+  { data: { id: 'in-between',    label: '動画\n(中割り)' },     classes: 'ellipse col-orange' },
+  { data: { id: 'inb-check',     label: '動画検査' },            classes: 'round   col-orange' },
+  { data: { id: 'inb-fix',       label: '動画修正' },            classes: 'ellipse col-orange' },
+  { data: { id: 'digital-paint', label: '仕上げ\n(デジタル彩色)' }, classes: 'ellipse col-orange' },
+  { data: { id: 'paint-check',   label: '仕上げ検査' },          classes: 'round   col-orange' },
+  { data: { id: 'paint-fix',     label: '色修正' },              classes: 'ellipse col-orange' },
+
+  // ===== 背景 =====
+  { data: { id: 'bg-art',        label: '背景美術\n(マットペイント)' }, classes: 'ellipse col-green' },
+
+  // ==== ANDゲート: 作画工程完了 ====
+  { data: { id: 'anim-ready',    label: '作画工程OK！\n▸ 色修正完了\n▸ 背景完了' }, classes: 'hexagon andgate' },
+
+  // ===== トラブル =====
+  { data: { id: 'crisis',        label: '納期直前\nトラブル！\n(作画崩壊・放送事故)' }, classes: 'diamond col-red' },
+
+  // ===== 撮影・合成 =====
+  { data: { id: 'comp',          label: '撮影\n(合成処理)' },   classes: 'ellipse col-green' },
+  { data: { id: 'sfx',           label: '特殊効果\n(エフェクト)' }, classes: 'round   col-green' },
+  { data: { id: 'cg-integrate',  label: '3DCG統合' },            classes: 'round   col-green' },
+  { data: { id: 'comp-check',    label: '撮影監督\n確認' },      classes: 'diamond col-green' },
+  { data: { id: 'comp-fix',      label: '撮影修正' },            classes: 'ellipse col-green' },
+
+  // ===== 編集 =====
+  { data: { id: 'offline-edit',  label: 'オフライン\n編集(本編尺)' }, classes: 'ellipse col-mauve' },
+  { data: { id: 'online-edit',   label: 'オンライン\n編集(完パケ尺)' }, classes: 'ellipse col-mauve' },
+
+  // ===== 音響 =====
+  { data: { id: 'voice-rec',     label: 'アフレコ\n(声優収録)' }, classes: 'ellipse col-mauve' },
+  { data: { id: 'voice-retake',  label: 'アフレコ\nリテイク' },   classes: 'diamond col-mauve' },
+  { data: { id: 'se',            label: '効果音制作' },           classes: 'round   col-mauve' },
+  { data: { id: 'music',         label: '音楽収録\n(BGM・劇伴)' }, classes: 'round   col-mauve' },
+  { data: { id: 'music-select',  label: '選曲・\n音響演出' },    classes: 'ellipse col-mauve' },
+  { data: { id: 'dub',           label: 'ダビング\n(音響ミックス)' }, classes: 'ellipse col-mauve' },
+
+  // ==== ANDゲート: 音響完了 ====
+  { data: { id: 'audio-ready',   label: '音響OK！\n▸ ダビング完了\n▸ 編集完了' }, classes: 'hexagon andgate' },
+
+  // ===== 完パケ・放送 =====
+  { data: { id: 'master',        label: '完パケ納品\n(最終マスター)' }, classes: 'hexagon milestone' },
+  { data: { id: 'onair',         label: '放送\nオンエア' },      classes: 'hexagon col-yellow' },
+  { data: { id: 'streaming',     label: '配信\n(各種配信サイト)' }, classes: 'round   col-red' },
+  { data: { id: 'bd',            label: 'BD/DVD\n制作・発売' }, classes: 'round   col-red' },
+  { data: { id: 'merch',         label: 'グッズ\n制作・販促' },  classes: 'round   col-red' },
+  { data: { id: 'events',        label: 'イベント\n(舞台挨拶・ライブ)' }, classes: 'round   col-red' },
+  { data: { id: 'project-end',   label: '全話放送\n完了！' },    classes: 'hexagon milestone' },
+];
+
+const edges = [
+  // ===== START → 最初の工程 =====
+  { data: { source: 'start', target: 'concept' }, classes: 'main' },
+
+  // --- 企画 ---
+  { data: { source: 'concept',    target: 'source' },     classes: 'main' },
+  { data: { source: 'source',     target: 'proposal' },   classes: 'main' },
+  { data: { source: 'proposal',   target: 'sponsor' },    classes: 'main' },
+  { data: { source: 'sponsor',    target: 'network' },    classes: 'main' },
+  { data: { source: 'network',    target: 'staff-hire' }, classes: 'main' },
+  { data: { source: 'staff-hire', target: 'greenlight' }, classes: 'main' },
+
+  // --- 企画→脚本・デザイン（分岐） ---
+  { data: { source: 'greenlight', target: 'series-comp' }, classes: 'main' },
+  { data: { source: 'greenlight', target: 'char-design' }, classes: 'dashed' },
+
+  // --- 脚本 ---
+  { data: { source: 'series-comp', target: 'ep-plot' },     classes: 'main' },
+  { data: { source: 'ep-plot',     target: 'ep-script' },   classes: 'main' },
+  { data: { source: 'ep-script',   target: 'script-meet' }, classes: 'main' },
+  { data: { source: 'script-meet', target: 'script-fix' },  classes: 'main' },
+  { data: { source: 'script-fix',  target: 'storyboard' },  classes: 'main' },
+  // 脚本フィードバック
+  { data: { source: 'script-meet', target: 'ep-script', label: 'NG・修正指示' }, classes: 'fb' },
+
+  // --- デザイン（並行→ANDゲート） ---
+  { data: { source: 'char-design', target: 'char-ad' },       classes: 'main' },
+  { data: { source: 'char-design', target: 'mecha-design' },  classes: 'dashed' },
+  { data: { source: 'char-design', target: 'art-set' },       classes: 'dashed' },
+  { data: { source: 'char-design', target: 'color-design' },  classes: 'dashed' },
+  // ANDゲート: design-ready（4つの親→AND→design-done）
+  { data: { source: 'char-ad',      target: 'design-ready' }, classes: 'main' },
+  { data: { source: 'mecha-design', target: 'design-ready' }, classes: 'dashed' },
+  { data: { source: 'art-set',      target: 'design-ready' }, classes: 'dashed' },
+  { data: { source: 'color-design', target: 'design-ready' }, classes: 'dashed' },
+  { data: { source: 'design-ready', target: 'design-done' },  classes: 'main' },
+  // デザイン→絵コンテ
+  { data: { source: 'design-done', target: 'storyboard' },    classes: 'dashed' },
+
+  // --- 絵コンテ ---
+  { data: { source: 'storyboard',  target: 'sb-check' },    classes: 'main' },
+  { data: { source: 'sb-check',    target: 'sb-fix' },      classes: 'main' },
+  { data: { source: 'sb-fix',      target: 'location' },    classes: 'main' },
+  { data: { source: 'location',    target: 'layout' },      classes: 'main' },
+  { data: { source: 'layout',      target: 'lay-check' },   classes: 'main' },
+  // 絵コンテフィードバック
+  { data: { source: 'sb-check', target: 'storyboard', label: 'コンテ戻し' }, classes: 'fb' },
+
+  // --- 絵コンテ→作画 ---
+  { data: { source: 'lay-check', target: 'key-anim' }, classes: 'main' },
+
+  // --- 作画 ---
+  { data: { source: 'key-anim',   target: 'ad-check' },        classes: 'main' },
+  { data: { source: 'ad-check',   target: 'key-fix' },         classes: 'main' },
+  { data: { source: 'key-fix',    target: 'key-anim-2' },      classes: 'main' },
+  { data: { source: 'key-anim-2', target: 'in-between' },      classes: 'main' },
+  { data: { source: 'in-between', target: 'inb-check' },       classes: 'main' },
+  { data: { source: 'inb-check',  target: 'inb-fix' },         classes: 'main' },
+  { data: { source: 'inb-fix',    target: 'digital-paint' },   classes: 'main' },
+  { data: { source: 'digital-paint', target: 'paint-check' },  classes: 'main' },
+  { data: { source: 'paint-check', target: 'paint-fix' },      classes: 'main' },
+  // 作画フィードバック
+  { data: { source: 'ad-check',   target: 'key-anim', label: '原画戻し(赤ペン)' }, classes: 'fb' },
+  { data: { source: 'inb-check',  target: 'in-between', label: '動画戻し' },        classes: 'fb' },
+  { data: { source: 'paint-check', target: 'digital-paint', label: '色戻し' },       classes: 'fb' },
+
+  // --- 背景（並行） ---
+  { data: { source: 'lay-check', target: 'bg-art' },  classes: 'dashed' },
+
+  // --- ANDゲート: anim-ready（paint-fix + bg-art → comp） ---
+  { data: { source: 'paint-fix', target: 'anim-ready' }, classes: 'main' },
+  { data: { source: 'bg-art',    target: 'anim-ready' }, classes: 'main' },
+  { data: { source: 'anim-ready', target: 'comp' },      classes: 'main' },
+
+  // --- トラブル ---
+  { data: { source: 'ad-check', target: 'crisis', label: 'スケジュール遅延' }, classes: 'fb' },
+  { data: { source: 'crisis',   target: 'key-anim', label: '総力戦で修正' },   classes: 'fb' },
+  { data: { source: 'crisis',   target: 'master', label: '滑り込みセーフ' },   classes: 'fb' },
+
+  // --- 撮影 ---
+  { data: { source: 'comp',        target: 'sfx' },          classes: 'main' },
+  { data: { source: 'comp',        target: 'cg-integrate' }, classes: 'dashed' },
+  { data: { source: 'sfx',         target: 'comp-check' },   classes: 'main' },
+  { data: { source: 'cg-integrate', target: 'comp-check' },  classes: 'dashed' },
+  { data: { source: 'comp-check',  target: 'comp-fix' },     classes: 'main' },
+  { data: { source: 'comp-fix',    target: 'offline-edit' }, classes: 'main' },
+  // 撮影フィードバック
+  { data: { source: 'comp-check', target: 'comp', label: '撮影戻し' }, classes: 'fb' },
+
+  // --- 編集 ---
+  { data: { source: 'offline-edit', target: 'online-edit' }, classes: 'main' },
+
+  // --- 音響（編集から並行分岐） ---
+  { data: { source: 'offline-edit', target: 'voice-rec' },    classes: 'dashed' },
+  { data: { source: 'voice-rec',    target: 'voice-retake' }, classes: 'main' },
+  { data: { source: 'voice-retake', target: 'se' },            classes: 'main' },
+  { data: { source: 'se',           target: 'music' },         classes: 'dashed' },
+  { data: { source: 'music',        target: 'music-select' },  classes: 'main' },
+  { data: { source: 'music-select', target: 'dub' },           classes: 'main' },
+  // アフレコフィードバック
+  { data: { source: 'voice-retake', target: 'voice-rec', label: 'リテイク(再収録)' }, classes: 'fb' },
+
+  // --- ANDゲート: audio-ready（online-edit + dub → master） ---
+  { data: { source: 'online-edit', target: 'audio-ready' }, classes: 'main' },
+  { data: { source: 'dub',         target: 'audio-ready' }, classes: 'main' },
+  { data: { source: 'audio-ready', target: 'master' },      classes: 'main' },
+
+  // --- 放送・販促 ---
+  { data: { source: 'master',   target: 'onair' },         classes: 'main' },
+  { data: { source: 'onair',   target: 'streaming' },   classes: 'dashed' },
+  { data: { source: 'onair',   target: 'bd' },          classes: 'dashed' },
+  { data: { source: 'onair',   target: 'merch' },       classes: 'dashed' },
+  { data: { source: 'bd',      target: 'project-end' }, classes: 'main' },
+  { data: { source: 'merch',   target: 'events' },      classes: 'dashed' },
+  { data: { source: 'streaming', target: 'project-end' }, classes: 'dashed' },
+  { data: { source: 'events',  target: 'project-end' },   classes: 'dashed' },
+
+  // ===== GOAL =====
+  { data: { source: 'project-end', target: 'goal' }, classes: 'main' },
+
+  // ===== 制作進行（全工程と連絡調整） =====
+  { data: { source: 'prod-desk', target: 'concept' },     classes: 'dashed' },
+  { data: { source: 'prod-desk', target: 'greenlight' },  classes: 'dashed' },
+  { data: { source: 'prod-desk', target: 'char-design' }, classes: 'dashed' },
+  { data: { source: 'prod-desk', target: 'storyboard' },  classes: 'dashed' },
+  { data: { source: 'prod-desk', target: 'key-anim' },    classes: 'dashed' },
+  { data: { source: 'prod-desk', target: 'comp' },        classes: 'dashed' },
+  { data: { source: 'prod-desk', target: 'crisis' },      classes: 'dashed' },
+  { data: { source: 'prod-desk', target: 'master' },      classes: 'dashed' },
+];
+
+const elements = { nodes, edges };
+const layout = {
+  name: 'cose',
+  nodeRepulsion: 20000,
+  idealEdgeLength: 190,
+  gravity: 0.7,
+  numIter: 1200,
+  animate: true,
+  animationDuration: 500
+};
+
+const cy = cytoscape({
+  container: document.getElementById('cy'),
+  elements,
+  style: [
+    {
+      selector: 'node',
+      style: {
+        label: 'data(label)',
+        'text-wrap': 'wrap',
+        'text-max-width': 110,
+        'font-size': 12,
+        'font-family': '"Noto Sans JP", "Segoe UI", sans-serif',
+        color: '#4c4f69',
+        'text-halign': 'center',
+        'text-valign': 'center',
+        'font-weight': 'bold',
+        'border-width': 2,
+        'border-color': '#9ca0b0',
+        width: 120,
+        height: 72,
+      }
+    },
+    // START / GOAL
+    {
+      selector: '.startgoal',
+      style: {
+        'background-color': '#e6e9ef',
+        'border-color': '#1e66f5',
+        'border-width': 4,
+        color: '#1e66f5',
+        'font-size': 16,
+        shape: 'round-octagon',
+        width: 100,
+        height: 70,
+      }
+    },
+    // Phase colors (Catppuccin Latte light mode)
+    { selector: '.col-white',  style: { 'background-color': '#dce0e8', 'border-color': '#bcc0cc' } },
+    { selector: '.col-blue',   style: { 'background-color': '#8caaee', 'border-color': '#7c9ae6', color: '#222' } },
+    { selector: '.col-sky',    style: { 'background-color': '#74c7ec', 'border-color': '#5bb9e3', color: '#222' } },
+    { selector: '.col-orange', style: { 'background-color': '#fe640b', 'border-color': '#e65a0a', color: '#fff' } },
+    { selector: '.col-green',  style: { 'background-color': '#a6e3a1', 'border-color': '#85d687', color: '#333' } },
+    { selector: '.col-mauve',  style: { 'background-color': '#8839ef', 'border-color': '#7731d8', color: '#fff' } },
+    { selector: '.col-red',    style: { 'background-color': '#d20f39', 'border-color': '#bb0d33', color: '#fff' } },
+    { selector: '.col-gray',   style: { 'background-color': '#6c6f85', 'border-color': '#5c5f73', color: '#e6e9ef' } },
+    { selector: '.col-yellow', style: { 'background-color': '#df8e1d', 'border-color': '#c8801a', 'border-width': 3, color: '#222' } },
+    // Shapes
+    { selector: '.ellipse', style: { shape: 'ellipse' } },
+    { selector: '.hexagon', style: { shape: 'hexagon', width: 130, height: 80 } },
+    { selector: '.diamond', style: { shape: 'diamond', width: 100, height: 90 } },
+    { selector: '.round',   style: { shape: 'roundrectangle' } },
+    { selector: '.barrel',  style: { shape: 'round-rectangle', width: 140, height: 80 } },
+    // マイルストーン（白背景、青枠）
+    {
+      selector: '.milestone',
+      style: {
+        'background-color': '#fff',
+        'border-color': '#1e66f5',
+        'border-width': 4,
+        color: '#1e66f5',
+        shape: 'hexagon',
+        width: 130,
+        height: 80,
+      }
+    },
+    // ANDゲート（白背景、緑破線枠、チェックリスト表示）
+    {
+      selector: '.andgate',
+      style: {
+        'background-color': '#fff',
+        'border-color': '#40a02b',
+        'border-width': 4,
+        'border-style': 'dashed',
+        color: '#196c21',
+        shape: 'hexagon',
+        width: 140,
+        height: 90,
+        'font-size': 11,
+      }
+    },
+    // Edges
+    {
+      selector: 'edge',
+      style: {
+        width: 2,
+        'line-color': '#6c6f85',
+        'target-arrow-color': '#6c6f85',
+        'target-arrow-shape': 'triangle',
+        'arrow-scale': 1,
+        'curve-style': 'bezier',
+        label: 'data(label)',
+        'font-size': 10,
+        color: '#5c5f73',
+        'text-background-color': '#eff1f5',
+        'text-background-opacity': 0.85,
+        'text-background-padding': 2,
+      }
+    },
+    // メイン依存（青実線）
+    { selector: '.main', style: { width: 4, 'line-color': '#1e66f5', 'target-arrow-color': '#1e66f5', 'z-index': 10 } },
+    // 並行可能（灰点線）
+    { selector: '.dashed', style: { 'line-style': 'dashed', 'line-dash-pattern': [6, 4], 'z-index': 5 } },
+    // フィードバック（赤破線）
+    {
+      selector: '.fb',
+      style: {
+        'line-style': 'dashed',
+        'line-dash-pattern': [3, 3],
+        width: 2.5,
+        'line-color': '#d20f39',
+        'target-arrow-color': '#d20f39',
+        'z-index': 15,
+        'target-arrow-shape': 'triangle-backcurve',
+        color: '#d20f39',
+      }
+    },
+    { selector: 'node:selected', style: { 'border-color': '#df8e1d', 'border-width': 3 } },
+  ],
+  layout,
+  wheelSensitivity: 0.3,
+  minZoom: 0.2,
+  maxZoom: 4,
+});
+</script>
+</body>
+</html>
