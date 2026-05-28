@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Process Canvases — プロセス可視化グラフ集</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: #eff1f5;
+      font-family: 'Segoe UI', 'Noto Sans JP', sans-serif;
+      color: #4c4f69;
+      padding: 40px 24px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      min-height: 100vh;
+    }
+    h1 {
+      font-size: 28px;
+      color: #1e66f5;
+      margin-bottom: 8px;
+    }
+    .subtitle {
+      color: #6c6f85;
+      font-size: 14px;
+      margin-bottom: 36px;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      gap: 20px;
+      max-width: 1100px;
+      width: 100%;
+    }
+    .card {
+      background: #e6e9ef;
+      border-radius: 12px;
+      padding: 20px 24px;
+      border: 1px solid #ccd0da;
+      transition: box-shadow 0.15s;
+    }
+    .card:hover {
+      box-shadow: 0 4px 16px rgba(0,0,0,0.08);
+    }
+    .card h2 {
+      font-size: 18px;
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .card .tag {
+      display: inline-block;
+      font-size: 11px;
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-weight: bold;
+      margin-left: 4px;
+    }
+    .tag-deps {
+      background: #40a02b22;
+      color: #40a02b;
+      border: 1px solid #40a02b44;
+    }
+    .tag-timeline {
+      background: #1e66f522;
+      color: #1e66f5;
+      border: 1px solid #1e66f544;
+    }
+    .card p {
+      font-size: 13px;
+      color: #6c6f85;
+      margin-bottom: 12px;
+      line-height: 1.6;
+    }
+    .card a {
+      display: inline-block;
+      font-size: 13px;
+      color: #1e66f5;
+      text-decoration: none;
+      font-weight: bold;
+      padding: 4px 12px;
+      border-radius: 6px;
+      background: #dce0e8;
+      transition: background 0.1s;
+    }
+    .card a:hover {
+      background: #ccd0da;
+    }
+    .note {
+      margin-top: 36px;
+      font-size: 12px;
+      color: #9ca0b0;
+      text-align: center;
+      max-width: 540px;
+      line-height: 1.7;
+    }
+  </style>
+</head>
+<body>
+  <h1>Process Canvases</h1>
+  <p class="subtitle">業務フロー・工程を2パターンで可視化するグラフ集</p>
+
+  <div class="grid">
+    <div class="card">
+      <h2>🎬 アニメ製作 <span class="tag tag-deps">ANDゲート</span></h2>
+      <p>企画〜放送までの全工程を依存関係ベースで表現。ANDゲートで「脚本＋デザイン→絵コンテ」「作画＋背景→撮影」などの収束条件を明示。</p>
+      <a href="https://53b29461.github.io/process-canvases/deps/anime-prod-deps.html">開く →</a>
+    </div>
+    <div class="card">
+      <h2>🎬 アニメ製作 <span class="tag tag-timeline">タイムライン</span></h2>
+      <p>同じ工程を時系列フェーズで整理。企画→脚本→絵コンテ→作画→撮影→編集/音響→完パケ/放送の7フェーズ。</p>
+      <a href="https://53b29461.github.io/process-canvases/timeline/anime-prod-timeline.html">開く →</a>
+    </div>
+
+    <div class="card">
+      <h2>📦 引越し <span class="tag tag-deps">ANDゲート</span></h2>
+      <p>家探し〜新生活定着までの全タスクを依存関係で表現。「搬出準備OK」「旧居明渡しOK」「生活基盤OK」の3つのANDゲート。</p>
+      <a href="https://53b29461.github.io/process-canvases/deps/moving-graph.html">開く →</a>
+    </div>
+    <div class="card">
+      <h2>📦 引越し <span class="tag tag-timeline">タイムライン</span></h2>
+      <p>同じ工程を時系列で。1ヶ月前→1週間前→数日前→前日→当日→翌日→数日後の7フェーズ。</p>
+      <a href="https://53b29461.github.io/process-canvases/timeline/moving-timeline.html">開く →</a>
+    </div>
+
+    <div class="card">
+      <h2>💻 PC持ち出し <span class="tag tag-deps">ANDゲート</span></h2>
+      <p>社内PC持ち出し手続きの依存関係版。セキュリティ確認OK→事前準備完了→持ち出し準備OK→返却完了OKの4段階ANDゲート。</p>
+      <a href="https://53b29461.github.io/process-canvases/deps/pc-carryout-deps.html">開く →</a>
+    </div>
+    <div class="card">
+      <h2>💻 PC持ち出し <span class="tag tag-timeline">タイムライン</span></h2>
+      <p>同じ手続きを時系列で。申請→事前準備→持ち出し→業務中→返却→完了の6フェーズ。</p>
+      <a href="https://53b29461.github.io/process-canvases/timeline/pc-carryout-timeline.html">開く →</a>
+    </div>
+  </div>
+
+  <p class="note">
+    依存関係（ANDゲート）版: 複数の前提条件が揃わないと先に進めない構造の可視化に<br>
+    時系列タイムライン版: フェーズごとに並行タスクが発生するプロセスの俯瞰に<br>
+    ← 用途に応じて使い分け。
+  </p>
+</body>
+</html>
