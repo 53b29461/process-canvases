@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8">
-  <title>引越し 時系列タイムライン v2</title>
+  <title>引越し 時系列タイムライン</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body { background: #eff1f5; font-family: 'Segoe UI', sans-serif; height: 100vh; display: flex; flex-direction: column; }
@@ -48,7 +48,7 @@
 <body>
 
 <header>
-  <h1>引越し 時系列タイムライン v2 — 網羅性拡張版</h1>
+  <h1>引越し 時系列タイムライン</h1>
   <span class="hint">ドラッグ: パン / ホイール: ズーム / Re-layout で再整列</span>
   <div class="controls">
     <button onclick="cy.fit()">Fit</button>
@@ -99,243 +99,174 @@ const nodes = [
   { data: { id: 'start', label: 'START' }, classes: 'startgoal' },
   { data: { id: 'goal',  label: 'GOAL'  }, classes: 'startgoal' },
 
-  // ===== [0] 家探し〜契約 (col-white) =====
-  { data: { id: 'ph0-head',   label: '家探し\n〜契約' },       classes: 'phase-head col-white' },
-  { data: { id: 't-decide',   label: '引越し決意', },           classes: 'diamond col-white' },
-  { data: { id: 't-check',    label: '現状把握\n(契約状況/\n違約金確認)', }, classes: 'round   col-white' },
-  { data: { id: 't-budget',   label: '予算・条件整理\n(エリア/広さ/\n家賃上限)', }, classes: 'barrel  col-white' },
-  { data: { id: 't-search',   label: '物件情報収集\n・比較・内見', }, classes: 'ellipse col-white' },
-  { data: { id: 't-apply',    label: '申し込み\n・入居審査', },  classes: 'diamond col-white' },
-  { data: { id: 't-guarantor',label: '連帯保証人\n手配', },     classes: 'round   col-white' },
-  { data: { id: 't-fireins',  label: '火災保険加入', },         classes: 'round   col-white' },
-  { data: { id: 't-rejected', label: '審査落ち\n→再検索', },     classes: 'diamond col-red' },
-  { data: { id: 't-contract', label: '賃貸契約\n・初期費用振込', }, classes: 'round   col-white' },
+  // ===== [0] 家探し〜契約 / 時期未定 (col-white) =====
+  { data: { id: 'ph1-head',  label: '家探し\n〜契約' },       classes: 'phase-head col-white' },
+  { data: { id: 'hunting',   label: '引越し決意\n・条件整理\n(予算/エリア/広さ)' }, classes: 'ellipse col-white' },
+  { data: { id: 'search',    label: '新居情報収集\n・内見' },  classes: 'ellipse col-white' },
+  { data: { id: 'apply',     label: '申し込み\n・入居審査' },  classes: 'diamond col-white' },
+  { data: { id: 'rejected',  label: '審査落ち\n→再検索' },     classes: 'diamond col-red' },
+  { data: { id: 'contract',  label: '賃貸契約\n・入金' },       classes: 'round   col-white' },
 
   // ===== [1] 1ヶ月前 (col-blue) =====
-  { data: { id: 'ph1-head',   label: '▶︎ 1ヶ月前\n引越し日確定' }, classes: 'phase-head col-blue' },
-  { data: { id: 't-cancel',   label: '現住所\n解約通知', },       classes: 'ellipse col-blue' },
-  { data: { id: 't-moveout-adj',label: '退去日調整\n(管理会社)', }, classes: 'diamond col-blue' },
-  { data: { id: 't-mover-1m', label: '引越し業者\n見積もり比較', }, classes: 'diamond col-blue' },
-  { data: { id: 't-declutter',label: '不用品処分\n(売る/捨てる/\n譲る/寄付)', }, classes: 'ellipse col-blue' },
-  { data: { id: 't-bulky',    label: '粗大ゴミ\n収集予約', },     classes: 'round   col-blue' },
-  { data: { id: 't-flea',     label: 'フリマ/メルカリ\n出品', },  classes: 'round   col-blue' },
-  { data: { id: 't-moveout',  label: '転出届\n(旧市区町村)', },   classes: 'round   col-blue' },
-  { data: { id: 't-mail-fwd', label: '郵便転送申請', },           classes: 'round   col-blue' },
-  { data: { id: 't-keyret',   label: '鍵返却方法\n確認', },       classes: 'round   col-blue' },
+  { data: { id: 'ph2-head',  label: '▶︎ 1ヶ月前\n引越し日確定' }, classes: 'phase-head col-blue' },
+  { data: { id: 'cancel',    label: '現住所\n解約通知' },        classes: 'ellipse col-blue' },
+  { data: { id: 'mover-1m',  label: '引越し業者\n見積もり比較' }, classes: 'diamond col-blue' },
+  { data: { id: 'declutter', label: '不用品処分\n(売る/捨てる/\n譲る/寄付)' }, classes: 'ellipse col-blue' },
+  { data: { id: 'moveout',   label: '転出届\n(旧市区町村)' },    classes: 'round   col-blue' },
+  { data: { id: 'mail-fwd',  label: '郵便転送\n申請', },        classes: 'round   col-blue' },
 
   // ===== [2] 1週間前 (col-sky) =====
-  { data: { id: 'ph2-head',   label: '▶︎ 1週間前\n本格始動' },   classes: 'phase-head col-sky' },
-  { data: { id: 't-mover-book',label: '引越し業者\n発注・確定', },    classes: 'round   col-sky' },
-  { data: { id: 't-moption',  label: 'オプション追加\n(家電設置/\n追加梱包)', }, classes: 'round   col-sky' },
-  { data: { id: 't-roadpermit',label: '道路使用許可\n申請(駐車禁止\n区域の場合)', }, classes: 'round   col-sky' },
-  { data: { id: 't-elevator', label: 'エレベーター\n予約(マンション\nの場合)', }, classes: 'round   col-sky' },
-  { data: { id: 't-packsupp', label: '梱包資材調達\n(段ボール/テープ/\n緩衝材/マジック)', }, classes: 'round   col-sky' },
-  { data: { id: 't-pack1',    label: '荷造り①\n(非日常品:\n本/服飾雑貨)', }, classes: 'ellipse col-sky' },
-  { data: { id: 't-utilstop', label: '旧居ライフライン\n停止連絡', }, classes: 'round   col-sky' },
-  { data: { id: 't-utilon',   label: '新居ライフライン\n開通手配', }, classes: 'round   col-sky' },
-  { data: { id: 't-fridge',   label: '冷蔵庫\n霜取り', },         classes: 'ellipse col-sky' },
-  { data: { id: 't-washer',   label: '洗濯機\n水抜き', },         classes: 'ellipse col-sky' },
-  { data: { id: 't-datawipe', label: 'PC/HDD\nデータ消去', },     classes: 'ellipse col-sky' },
+  { data: { id: 'ph3-head',  label: '▶︎ 1週間前\n本格始動' },   classes: 'phase-head col-sky' },
+  { data: { id: 'mover-book',label: '引越し業者\n発注・確定' },   classes: 'round   col-sky' },
+  { data: { id: 'pack-supp', label: '梱包資材調達\n(段ボール/\nガムテープ)' }, classes: 'round   col-sky' },
+  { data: { id: 'pack-1',    label: '荷造り①\n(非日常品:\n本/服飾雑貨)' }, classes: 'ellipse col-sky' },
+  { data: { id: 'util-stop', label: '旧居ライフライン\n停止連絡', }, classes: 'round   col-sky' },
+  { data: { id: 'util-on',   label: '新居ライフライン\n開通手配', }, classes: 'round   col-sky' },
 
   // ===== [3] 数日前 (col-green) =====
-  { data: { id: 'ph3-head',   label: '▶︎ 数日前\n大詰め' },     classes: 'phase-head col-green' },
-  { data: { id: 't-pack2',    label: '荷造り②\n(中頻度品:\n調理器具/\n予備日用品)', }, classes: 'ellipse col-green' },
-  { data: { id: 't-restore',  label: '原状回復\n・壁紙補修\n・クリーニング', }, classes: 'ellipse col-green' },
-  { data: { id: 't-valuables',label: '貴重品・重要\n書類をまとめる', }, classes: 'diamond col-green' },
-  { data: { id: 't-addrchg',  label: '住所変更一括\n(銀行/クレカ/\n保険/サブスク)', }, classes: 'barrel  col-green' },
-  { data: { id: 't-mynumber', label: 'マイナンバー\n住所変更', },   classes: 'round   col-green' },
-  { data: { id: 't-license',  label: '免許証\n住所変更', },        classes: 'round   col-green' },
-  { data: { id: 't-hins',     label: '保険証\n住所変更', },        classes: 'round   col-green' },
-  { data: { id: 't-mobile',   label: '携帯キャリア\n住所変更', },  classes: 'round   col-green' },
-  { data: { id: 't-subsc',    label: '各種サブスク\n住所変更\n(Amazon/Netflix/他)', }, classes: 'round   col-green' },
-  { data: { id: 't-internet', label: 'インターネット\n移転手続き', }, classes: 'round   col-green' },
-  { data: { id: 't-work',     label: '職場・学校に\n住所変更届', },  classes: 'round   col-green' },
-  { data: { id: 't-car',      label: '車の名義変更\n・保管場所変更\n(該当時)', }, classes: 'round   col-green' },
-  { data: { id: 't-school',   label: '転校・転園\n手続き(該当時)', }, classes: 'round   col-green' },
+  { data: { id: 'ph4-head',  label: '▶︎ 数日前\n大詰め' },     classes: 'phase-head col-green' },
+  { data: { id: 'pack-2',    label: '荷造り②\n(中頻度品:\n調理器具/日用品)' }, classes: 'ellipse col-green' },
+  { data: { id: 'restore',   label: '原状回復\n・壁紙補修\n・クリーニング' }, classes: 'ellipse col-green' },
+  { data: { id: 'addr-chg',  label: '住所変更一括\n(銀行/クレカ/\n保険/サブスク)' }, classes: 'barrel col-green' },
+  { data: { id: 'internet',  label: 'インターネット\n移転手続き' }, classes: 'round   col-green' },
+  { data: { id: 'work',      label: '職場・学校に\n住所変更届' },  classes: 'round   col-green' },
+  { data: { id: 'school',    label: '転校・転園\n手続き(該当時)' }, classes: 'round   col-green' },
+  { data: { id: 'valuables', label: '貴重品・重要\n書類をまとめる' }, classes: 'diamond col-green' },
 
   // ===== [4] 前日 (col-orange) =====
-  { data: { id: 'ph4-head',   label: '▶︎ 前日\n準備完了' },     classes: 'phase-head col-orange' },
-  { data: { id: 't-pack3',    label: '荷造り完了\n(最終日用品\nのみ残す)', }, classes: 'ellipse col-orange' },
-  { data: { id: 't-clean',    label: '旧居清掃\n(大まかに)', },   classes: 'ellipse col-orange' },
-  { data: { id: 't-finalchk', label: '最終確認\n(書類/貴重品/\n道順/集合時間)', }, classes: 'diamond col-orange' },
+  { data: { id: 'ph5-head',  label: '▶︎ 前日\n準備完了' },     classes: 'phase-head col-orange' },
+  { data: { id: 'pack-3',    label: '荷造り完了\n(最終日用品\nのみ残す)' }, classes: 'ellipse col-orange' },
+  { data: { id: 'clean',     label: '旧居清掃\n(大まかに)', },   classes: 'ellipse col-orange' },
+  { data: { id: 'final-chk', label: '最終確認\n(書類/貴重品/\n道順/集合時間)' }, classes: 'diamond col-orange' },
 
   // ===== [5] 当日 (col-red) =====
-  { data: { id: 'ph5-head',   label: '≡ 当日\n引越し実行！' },  classes: 'phase-head col-red' },
-  { data: { id: 't-loadout',  label: '業者到着\n・搬出', },        classes: 'ellipse col-red' },
-  { data: { id: 't-inspect',  label: '旧居立会い\n・鍵返却', },    classes: 'diamond col-red' },
-  { data: { id: 't-keyget',   label: '新居到着\n・鍵受け取り', },  classes: 'hexagon col-red' },
-  { data: { id: 't-cleann',   label: '新居\n搬入前掃除', },       classes: 'ellipse col-red' },
-  { data: { id: 't-loadin',   label: '搬入', },                  classes: 'ellipse col-red' },
-  { data: { id: 't-utilconf', label: 'ガス立会い\n・水道/電気\n開通確認', }, classes: 'round   col-red' },
-  { data: { id: 't-furniture',label: '家具配置\n・大型家電\n設置', }, classes: 'ellipse col-red' },
-  { data: { id: 't-bed',      label: '寝床確保\n(最優先!)', },    classes: 'diamond col-red' },
-  { data: { id: 't-curtain',  label: 'カーテン取付', },           classes: 'round   col-red' },
-  { data: { id: 't-lighting', label: '照明器具\n取付', },          classes: 'round   col-red' },
-  { data: { id: 't-acinstall',label: 'エアコン取付\n(業者手配済み)', }, classes: 'round   col-red' },
-  { data: { id: 't-security', label: 'セキュリティ\n設定(鍵/防犯)', }, classes: 'round   col-red' },
-  { data: { id: 't-trouble',  label: '引越し\nトラブル！\n(雨天/渋滞/破損)', }, classes: 'diamond col-red' },
+  { data: { id: 'ph6-head',  label: '≡ 当日\n引越し実行！' },  classes: 'phase-head col-red' },
+  { data: { id: 'load-out',  label: '業者到着\n・搬出' },        classes: 'ellipse col-red' },
+  { data: { id: 'inspect',   label: '旧居立会い\n・鍵返却' },    classes: 'diamond col-red' },
+  { data: { id: 'key-get',   label: '新居到着\n・鍵受け取り' },  classes: 'hexagon col-red' },
+  { data: { id: 'load-in',   label: '搬入', },                  classes: 'ellipse col-red' },
+  { data: { id: 'util-confirm', label: 'ガス立会い\n・水道/電気\n開通確認' }, classes: 'round   col-red' },
+  { data: { id: 'furniture', label: '家具配置\n・大型家電\n設置' }, classes: 'ellipse col-red' },
+  { data: { id: 'trouble',   label: '引越し\nトラブル！\n(雨天/渋滞/破損)' }, classes: 'diamond col-red' },
 
   // ===== [6] 翌日 (col-mauve) =====
-  { data: { id: 'ph6-head',   label: '▶︎ 翌日\nひと段落' },    classes: 'phase-head col-mauve' },
-  { data: { id: 't-unpack',   label: '荷解き\n(段ボール撤去)', },  classes: 'ellipse col-mauve' },
-  { data: { id: 't-neighbor', label: '近隣挨拶', },              classes: 'round   col-mauve' },
-  { data: { id: 't-shopping', label: '足りないもの\n買い出し', },   classes: 'round   col-mauve' },
-  { data: { id: 't-packdaily',label: '最終日用品\n荷解き', },     classes: 'ellipse col-mauve' },
+  { data: { id: 'ph7-head',  label: '▶︎ 翌日\nひと段落' },    classes: 'phase-head col-mauve' },
+  { data: { id: 'unpack',    label: '荷解き\n(段ボール撤去)' },  classes: 'ellipse col-mauve' },
+  { data: { id: 'neighbor',  label: '近隣挨拶', },              classes: 'round   col-mauve' },
+  { data: { id: 'shopping',  label: '足りないもの\n買い出し' },   classes: 'round   col-mauve' },
+  { data: { id: 'pack-daily-final', label: '最終日用品\n荷解き', }, classes: 'ellipse col-mauve' },
 
   // ===== [7] 数日後〜1週間以内 (col-yellow) =====
-  { data: { id: 'ph7-head',   label: '▶︎ 数日後\n〜1週間以内' }, classes: 'phase-head col-yellow' },
-  { data: { id: 't-movein',   label: '転入届\n(新市区町村)\n14日以内', }, classes: 'round   col-yellow' },
-  { data: { id: 't-deposit',  label: '旧居敷金\n精算', },          classes: 'round   col-yellow' },
-  { data: { id: 't-oldclose', label: '旧居関連\n完全クローズ', },    classes: 'diamond col-yellow' },
-  { data: { id: 't-trashrule',label: 'ゴミ出し\nルール確認', },    classes: 'round   col-yellow' },
-  { data: { id: 't-community',label: '自治会・\n町内会加入', },     classes: 'round   col-yellow' },
-  { data: { id: 't-areacheck',label: '地域把握\n(病院/スーパー\n/薬局)', }, classes: 'round   col-yellow' },
-  { data: { id: 't-settle',   label: '新生活\n定着！', },          classes: 'hexagon col-yellow' },
+  { data: { id: 'ph8-head',  label: '▶︎ 数日後\n〜1週間以内' }, classes: 'phase-head col-yellow' },
+  { data: { id: 'movein',    label: '転入届\n(新市区町村)\n14日以内' }, classes: 'round   col-yellow' },
+  { data: { id: 'deposit',   label: '旧居敷金\n精算', },         classes: 'round   col-yellow' },
+  { data: { id: 'old-close', label: '旧居関連\n完全クローズ', },   classes: 'diamond col-yellow' },
+  { data: { id: 'settle',    label: '新生活\n定着！', },          classes: 'hexagon col-yellow' },
 ];
 
 const edges = [
   // ===== START =====
-  { data: { source: 'start',     target: 'ph0-head' }, classes: 'main' },
+  { data: { source: 'start',   target: 'ph1-head' }, classes: 'main' },
 
   // --- 家探し〜契約（時系列メイン） ---
-  { data: { source: 'ph0-head',  target: 't-decide' },    classes: 'main' },
-  { data: { source: 't-decide',  target: 't-check' },     classes: 'main' },
-  { data: { source: 't-check',   target: 't-budget' },    classes: 'main' },
-  { data: { source: 't-budget',  target: 't-search' },    classes: 'main' },
-  { data: { source: 't-search',  target: 't-apply' },     classes: 'main' },
-  { data: { source: 't-apply',   target: 't-guarantor' }, classes: 'main' },
-  { data: { source: 't-guarantor',target: 't-fireins' },  classes: 'dashed' },
-  { data: { source: 't-apply',   target: 't-contract' },  classes: 'main' },
-  { data: { source: 't-fireins', target: 't-contract' },  classes: 'main' },
+  { data: { source: 'ph1-head',target: 'hunting' },  classes: 'main' },
+  { data: { source: 'hunting', target: 'search' },   classes: 'main' },
+  { data: { source: 'search',  target: 'apply' },    classes: 'main' },
+  { data: { source: 'apply',   target: 'contract' }, classes: 'main' },
   // 審査フィードバック
-  { data: { source: 't-apply',   target: 't-rejected' },  classes: 'fb' },
-  { data: { source: 't-rejected',target: 't-search', label: '別物件' }, classes: 'fb' },
+  { data: { source: 'apply',   target: 'rejected' }, classes: 'fb' },
+  { data: { source: 'rejected',target: 'search', label: '別物件' }, classes: 'fb' },
 
   // 契約 → 1ヶ月前
-  { data: { source: 't-contract', target: 'ph1-head' }, classes: 'main' },
+  { data: { source: 'contract', target: 'ph2-head' }, classes: 'main' },
 
   // --- 1ヶ月前 ---
-  { data: { source: 'ph1-head',   target: 't-cancel' },      classes: 'main' },
-  { data: { source: 't-cancel',   target: 't-moveout-adj' }, classes: 'main' },
-  { data: { source: 'ph1-head',   target: 't-mover-1m' },    classes: 'dashed' },
-  { data: { source: 'ph1-head',   target: 't-declutter' },   classes: 'dashed' },
-  { data: { source: 'ph1-head',   target: 't-moveout' },     classes: 'dashed' },
-  { data: { source: 'ph1-head',   target: 't-mail-fwd' },    classes: 'dashed' },
-  { data: { source: 'ph1-head',   target: 't-keyret' },      classes: 'dashed' },
-  // 不用品処分の下流
-  { data: { source: 't-declutter', target: 't-bulky' },      classes: 'dashed' },
-  { data: { source: 't-declutter', target: 't-flea' },       classes: 'dashed' },
+  { data: { source: 'ph2-head', target: 'cancel' },    classes: 'main' },
+  { data: { source: 'ph2-head', target: 'mover-1m' },  classes: 'dashed' },
+  { data: { source: 'ph2-head', target: 'declutter' }, classes: 'dashed' },
+  { data: { source: 'ph2-head', target: 'moveout' },   classes: 'dashed' },
+  { data: { source: 'ph2-head', target: 'mail-fwd' },  classes: 'dashed' },
+  // 不用品処分は継続的
+  { data: { source: 'declutter', target: 'pack-supp' }, classes: 'dashed' },
 
   // 1ヶ月前 → 1週間前
-  { data: { source: 't-moveout-adj', target: 'ph2-head' }, classes: 'main' },
-  { data: { source: 't-mover-1m',    target: 'ph2-head' }, classes: 'dashed' },
+  { data: { source: 'cancel',   target: 'ph3-head' }, classes: 'main' },
 
   // --- 1週間前 ---
-  { data: { source: 'ph2-head',  target: 't-mover-book' },  classes: 'main' },
-  { data: { source: 't-mover-book',target: 't-moption' },   classes: 'dashed' },
-  { data: { source: 't-mover-book',target: 't-roadpermit' },classes: 'dashed' },
-  { data: { source: 't-mover-book',target: 't-elevator' },  classes: 'dashed' },
-  { data: { source: 'ph2-head',  target: 't-packsupp' },    classes: 'dashed' },
-  { data: { source: 'ph2-head',  target: 't-utilstop' },    classes: 'dashed' },
-  { data: { source: 'ph2-head',  target: 't-utilon' },      classes: 'dashed' },
-  { data: { source: 't-packsupp',target: 't-pack1' },       classes: 'main' },
-  { data: { source: 't-declutter',target: 't-fridge' },     classes: 'dashed' },
-  { data: { source: 't-declutter',target: 't-washer' },     classes: 'dashed' },
-  { data: { source: 't-declutter',target: 't-datawipe' },   classes: 'dashed' },
-  // 見積もり → 発注FB
-  { data: { source: 't-mover-1m',  target: 't-mover-book', label: '比較して決定' }, classes: 'main' },
+  { data: { source: 'ph3-head',  target: 'mover-book' }, classes: 'main' },
+  { data: { source: 'ph3-head',  target: 'pack-supp' },  classes: 'dashed' },
+  { data: { source: 'ph3-head',  target: 'util-stop' },  classes: 'dashed' },
+  { data: { source: 'ph3-head',  target: 'util-on' },    classes: 'dashed' },
+  { data: { source: 'pack-supp', target: 'pack-1' },     classes: 'main' },
+  // 見積もりFB
+  { data: { source: 'mover-1m',  target: 'mover-book', label: '比較して決定' }, classes: 'main' },
+  { data: { source: 'mover-1m',  target: 'mover-1m',   label: '高い→再見積' }, classes: 'fb' },
 
   // 1週間前 → 数日前
-  { data: { source: 't-pack1',   target: 'ph3-head' }, classes: 'main' },
-  { data: { source: 't-mover-book',target: 'ph3-head' }, classes: 'dashed' },
+  { data: { source: 'pack-1',   target: 'ph4-head' }, classes: 'main' },
 
   // --- 数日前 ---
-  { data: { source: 'ph3-head',   target: 't-pack2' },      classes: 'main' },
-  { data: { source: 'ph3-head',   target: 't-restore' },    classes: 'dashed' },
-  { data: { source: 'ph3-head',   target: 't-valuables' },  classes: 'dashed' },
-  { data: { source: 'ph3-head',   target: 't-addrchg' },    classes: 'dashed' },
-  { data: { source: 'ph3-head',   target: 't-mynumber' },   classes: 'dashed' },
-  { data: { source: 'ph3-head',   target: 't-license' },    classes: 'dashed' },
-  { data: { source: 'ph3-head',   target: 't-hins' },       classes: 'dashed' },
-  { data: { source: 'ph3-head',   target: 't-mobile' },     classes: 'dashed' },
-  { data: { source: 'ph3-head',   target: 't-subsc' },      classes: 'dashed' },
-  { data: { source: 'ph3-head',   target: 't-internet' },   classes: 'dashed' },
-  { data: { source: 'ph3-head',   target: 't-work' },       classes: 'dashed' },
-  { data: { source: 'ph3-head',   target: 't-car' },        classes: 'dashed' },
-  { data: { source: 'ph3-head',   target: 't-school' },     classes: 'dashed' },
-  // 荷造りチェーン
-  { data: { source: 't-pack2',    target: 't-fridge' },     classes: 'dashed' },
-  { data: { source: 't-pack2',    target: 't-washer' },     classes: 'dashed' },
-  { data: { source: 't-fridge',   target: 't-pack3' },      classes: 'dashed' },
-  { data: { source: 't-washer',   target: 't-pack3' },      classes: 'dashed' },
-  { data: { source: 't-pack2',    target: 'ph4-head' },     classes: 'main' },
+  { data: { source: 'ph4-head', target: 'pack-2' },     classes: 'main' },
+  { data: { source: 'ph4-head', target: 'restore' },    classes: 'dashed' },
+  { data: { source: 'ph4-head', target: 'addr-chg' },   classes: 'dashed' },
+  { data: { source: 'ph4-head', target: 'internet' },   classes: 'dashed' },
+  { data: { source: 'ph4-head', target: 'work' },       classes: 'dashed' },
+  { data: { source: 'ph4-head', target: 'school' },     classes: 'dashed' },
+  { data: { source: 'ph4-head', target: 'valuables' },  classes: 'dashed' },
+  // 荷造り連続
+  { data: { source: 'pack-2',   target: 'ph5-head' }, classes: 'main' },
 
   // --- 前日 ---
-  { data: { source: 'ph4-head',  target: 't-pack3' },    classes: 'main' },
-  { data: { source: 'ph4-head',  target: 't-clean' },    classes: 'dashed' },
-  { data: { source: 'ph4-head',  target: 't-finalchk' }, classes: 'dashed' },
-  { data: { source: 't-pack3',   target: 'ph5-head' },   classes: 'main' },
-  { data: { source: 't-finalchk',target: 'ph5-head' },   classes: 'dashed' },
+  { data: { source: 'ph5-head',  target: 'pack-3' },    classes: 'main' },
+  { data: { source: 'ph5-head',  target: 'clean' },     classes: 'dashed' },
+  { data: { source: 'ph5-head',  target: 'final-chk' }, classes: 'dashed' },
+  { data: { source: 'pack-3',    target: 'ph6-head' },  classes: 'main' },
+  { data: { source: 'final-chk', target: 'ph6-head' },  classes: 'dashed' },
 
   // --- 当日（時系列順） ---
-  { data: { source: 'ph5-head',   target: 't-loadout' },     classes: 'main' },
-  { data: { source: 't-loadout',  target: 't-keyget' },      classes: 'main' },
-  { data: { source: 't-loadout',  target: 't-cleann' },      classes: 'main' },
-  { data: { source: 't-cleann',   target: 't-keyget' },      classes: 'dashed' },
-  { data: { source: 't-keyget',   target: 't-loadin' },      classes: 'main' },
-  { data: { source: 't-keyget',   target: 't-security' },    classes: 'dashed' },
-  { data: { source: 't-loadin',   target: 't-utilconf' },    classes: 'main' },
-  { data: { source: 't-utilconf', target: 't-furniture' },   classes: 'main' },
-  { data: { source: 't-utilconf', target: 't-bed' },         classes: 'main' },
-  { data: { source: 't-furniture',target: 't-curtain' },     classes: 'dashed' },
-  { data: { source: 't-furniture',target: 't-lighting' },    classes: 'dashed' },
-  { data: { source: 't-furniture',target: 't-acinstall' },   classes: 'dashed' },
-  // 旧居並行ルート
-  { data: { source: 't-loadout',  target: 't-inspect' },     classes: 'dashed' },
-  { data: { source: 't-inspect',  target: 't-keyget' },      classes: 'dashed' },
+  { data: { source: 'ph6-head',   target: 'load-out' },     classes: 'main' },
+  { data: { source: 'load-out',   target: 'key-get' },      classes: 'main' },
+  { data: { source: 'key-get',    target: 'load-in' },      classes: 'main' },
+  { data: { source: 'load-in',    target: 'util-confirm' }, classes: 'main' },
+  { data: { source: 'util-confirm', target: 'furniture' },  classes: 'main' },
+  // 旧居立会い・鍵返却は並行（旧居→新居の移動中に立ち会い）
+  { data: { source: 'load-out',   target: 'inspect' },      classes: 'dashed' },
+  { data: { source: 'inspect',    target: 'key-get' },      classes: 'dashed' },
   // トラブル
-  { data: { source: 't-loadout',  target: 't-trouble', label: '雨天/渋滞' }, classes: 'fb' },
-  { data: { source: 't-loadin',   target: 't-trouble', label: '破損/不足' }, classes: 'fb' },
-  { data: { source: 't-trouble',  target: 't-loadin', label: '対応後再開' }, classes: 'fb' },
+  { data: { source: 'load-out',   target: 'trouble', label: '雨天/渋滞' }, classes: 'fb' },
+  { data: { source: 'load-in',    target: 'trouble', label: '破損/不足' }, classes: 'fb' },
+  { data: { source: 'trouble',    target: 'load-in', label: '対応後再開' }, classes: 'fb' },
 
   // 当日 → 翌日
-  { data: { source: 't-bed',     target: 'ph6-head' }, classes: 'main' },
-  { data: { source: 't-furniture',target: 'ph6-head' }, classes: 'dashed' },
+  { data: { source: 'furniture', target: 'ph7-head' }, classes: 'main' },
 
   // --- 翌日 ---
-  { data: { source: 'ph6-head',  target: 't-unpack' },        classes: 'main' },
-  { data: { source: 'ph6-head',  target: 't-neighbor' },      classes: 'dashed' },
-  { data: { source: 't-unpack',  target: 't-packdaily' },     classes: 'main' },
-  { data: { source: 't-unpack',  target: 't-shopping' },      classes: 'dashed' },
+  { data: { source: 'ph7-head', target: 'unpack' },         classes: 'main' },
+  { data: { source: 'ph7-head', target: 'neighbor' },       classes: 'dashed' },
+  { data: { source: 'unpack',   target: 'pack-daily-final' }, classes: 'main' },
+  { data: { source: 'unpack',   target: 'shopping' },       classes: 'dashed' },
 
   // 翌日 → 数日後
-  { data: { source: 't-packdaily', target: 'ph7-head' }, classes: 'main' },
-  { data: { source: 't-movein',    target: 'ph7-head' }, classes: 'dashed' },
+  { data: { source: 'pack-daily-final', target: 'ph8-head' }, classes: 'main' },
 
   // --- 数日後〜1週間以内 ---
-  { data: { source: 'ph7-head',   target: 't-movein' },    classes: 'main' },
-  { data: { source: 'ph7-head',   target: 't-deposit' },   classes: 'dashed' },
-  { data: { source: 'ph7-head',   target: 't-trashrule' }, classes: 'dashed' },
-  { data: { source: 'ph7-head',   target: 't-community' }, classes: 'dashed' },
-  { data: { source: 'ph7-head',   target: 't-areacheck' }, classes: 'dashed' },
-  { data: { source: 't-deposit',  target: 't-oldclose' },  classes: 'main' },
-  { data: { source: 't-movein',   target: 't-settle' },    classes: 'main' },
-  { data: { source: 't-oldclose', target: 't-settle' },    classes: 'dashed' },
-  { data: { source: 't-trashrule',target: 't-settle' },    classes: 'dashed' },
-  { data: { source: 't-community',target: 't-settle' },    classes: 'dashed' },
-  { data: { source: 't-areacheck',target: 't-settle' },    classes: 'dashed' },
+  { data: { source: 'ph8-head', target: 'movein' },   classes: 'main' },
+  { data: { source: 'ph8-head', target: 'deposit' },  classes: 'dashed' },
+  { data: { source: 'movein',   target: 'settle' },   classes: 'main' },
+  { data: { source: 'deposit',  target: 'old-close' }, classes: 'main' },
+  { data: { source: 'old-close',target: 'settle' },    classes: 'dashed' },
 
   // ===== GOAL =====
-  { data: { source: 't-settle', target: 'goal' }, classes: 'main' },
+  { data: { source: 'settle', target: 'goal' }, classes: 'main' },
 ];
 
 const elements = { nodes, edges };
 const layout = {
   name: 'cose',
-  nodeRepulsion: 20000,
-  idealEdgeLength: 190,
-  gravity: 0.7,
-  numIter: 1200,
+  nodeRepulsion: 15000,
+  idealEdgeLength: 170,
+  gravity: 0.8,
+  numIter: 1000,
   animate: true,
   animationDuration: 500
 };
@@ -349,8 +280,8 @@ const cy = cytoscape({
       style: {
         label: 'data(label)',
         'text-wrap': 'wrap',
-        'text-max-width': 110,
-        'font-size': '12px',
+        'text-max-width': '100px',
+        'font-size': '13px',
         'font-family': '"Noto Sans JP", "Segoe UI", sans-serif',
         color: '#4c4f69',
         'text-halign': 'center',
@@ -362,6 +293,7 @@ const cy = cytoscape({
         height: 72,
       }
     },
+    // START / GOAL
     {
       selector: '.startgoal',
       style: {
@@ -375,6 +307,7 @@ const cy = cytoscape({
         height: 70,
       }
     },
+    // Phase headers
     {
       selector: '.phase-head',
       style: {
@@ -439,8 +372,8 @@ const cy = cytoscape({
   ],
   layout,
   wheelSensitivity: 0.3,
-  minZoom: 0.15,
-  maxZoom: 5,
+  minZoom: 0.2,
+  maxZoom: 4,
 });
 </script>
 </body>
