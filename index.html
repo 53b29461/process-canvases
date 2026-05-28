@@ -5,112 +5,37 @@
 <title>Process Canvases</title>
 <style>
 body {
-  background: #ffe4b5;
+  background: #fff;
   color: #333;
-  font-family: 'MS PGothic', 'Osaka', 'Noto Sans JP', sans-serif;
-  margin: 0;
-  padding: 20px;
-}
-table {
-  border-collapse: collapse;
-}
-td, th {
-  padding: 4px 12px;
-  border: 1px solid #996;
-  background: #fffff0;
-  font-size: 14px;
-}
-th {
-  background: #cc9966;
-  color: #fff;
-  font-weight: bold;
-}
-a {
-  color: #00e;
-  text-decoration: underline;
-}
-a:visited {
-  color: #800080;
-}
-a:hover {
-  color: #f00;
+  font-family: 'MS PGothic', sans-serif;
+  margin: 40px 20px;
+  text-align: center;
 }
 h1 {
-  font-size: 20px;
-  color: #663300;
-  margin: 0 0 4px 0;
-  padding: 4px 0;
-  border-bottom: 2px solid #cc9966;
+  font-size: 18px;
+  font-weight: bold;
+  margin: 0 0 20px 0;
 }
-.sub {
-  font-size: 12px;
-  color: #996;
-  margin: 2px 0 12px 0;
+a {
+  display: block;
+  color: #00e;
+  text-decoration: underline;
+  font-size: 14px;
+  line-height: 2;
 }
-hr {
-  border: none;
-  border-top: 1px solid #cc9966;
-  margin: 12px 0;
-}
-.footer {
-  font-size: 11px;
-  color: #999;
-  text-align: center;
-  margin-top: 16px;
-}
-.tag {
-  font-size: 11px;
-  color: #666;
-}
+a:visited { color: #800080; }
 </style>
 </head>
 <body>
 
-<h1>▼ Process Canvases</h1>
-<p class="sub">業務フロー可視化グラフ集 | Last updated: 2026.05.28</p>
+<h1>Process Canvases</h1>
 
-<hr>
-
-<table>
-<tr><th>カテゴリ</th><th>ファイル</th><th>説明</th></tr>
-<tr>
-  <td rowspan="3"><b>Dependency<br>(ANDゲート)</b></td>
-  <td><a href="deps/anime-prod-deps.html">anime-prod-deps</a></td>
-  <td>アニメ製作の依存関係</td>
-</tr>
-<tr>
-  <td><a href="deps/moving-graph.html">moving-graph</a></td>
-  <td>引越し手続きの依存関係</td>
-</tr>
-<tr>
-  <td><a href="deps/pc-carryout-deps.html">pc-carryout-deps</a></td>
-  <td>社内PC持ち出しの依存関係</td>
-</tr>
-<tr>
-  <td rowspan="3"><b>Timeline<br>(時系列)</b></td>
-  <td><a href="timeline/anime-prod-timeline.html">anime-prod-timeline</a></td>
-  <td>アニメ製作の時系列</td>
-</tr>
-<tr>
-  <td><a href="timeline/moving-timeline.html">moving-timeline</a></td>
-  <td>引越し手続きの時系列</td>
-</tr>
-<tr>
-  <td><a href="timeline/pc-carryout-timeline.html">pc-carryout-timeline</a></td>
-  <td>社内PC持ち出しの時系列</td>
-</tr>
-</table>
-
-<hr>
-
-<p style="font-size:13px;">
-<span class="tag">★</span> 依存関係版はANDゲートノード（六角形）で前提条件の収束を表現<br>
-<span class="tag">★</span> タイムライン版はフェーズ区切り＋並行タスクの俯瞰向け
-</p>
-
-<div class="footer">
-&copy; 2026 rkametani &nbsp;|&nbsp; <a href="https://github.com/53b29461/process-canvases">GitHub</a>
-</div>
+<a href="deps/anime-prod-deps.html">anime-prod-deps</a>
+<a href="deps/moving-graph.html">moving-graph</a>
+<a href="deps/pc-carryout-deps.html">pc-carryout-deps</a>
+<a href="timeline/anime-prod-timeline.html">anime-prod-timeline</a>
+<a href="timeline/moving-timeline.html">moving-timeline</a>
+<a href="timeline/pc-carryout-timeline.html">pc-carryout-timeline</a>
 
 </body>
 </html>
