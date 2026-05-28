@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8">
-  <title>引越し タスク依存関係グラフ v2</title>
+  <title>引越し タスク依存関係グラフ v3</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body { background: #eff1f5; font-family: 'Segoe UI', sans-serif; height: 100vh; display: flex; flex-direction: column; }
@@ -22,7 +22,7 @@
 </head>
 <body>
 <header>
-  <h1>引越し タスク依存関係 v2 — AND結合＋マルチペアレント</h1>
+  <h1>引越し タスク依存関係 v3 — 網羅性拡張版</h1>
   <span class="hint">ドラッグ: パン / ホイール: ズーム</span>
   <div class="controls">
     <button onclick="cy.fit()">Fit</button>
@@ -67,75 +67,109 @@ const nodes = [
   { data: { id: 'goal',  label: 'GOAL'  }, classes: 'startgoal' },
 
   // ===== 計画（家探し〜契約） =====
-  { data: { id: 'decide',    label: '引越し\n決意・決断' },           classes: 'diamond col-plan' },
-  { data: { id: 'budget',    label: '予算・条件整理\n(エリア/広さ/\n家賃上限)', },  classes: 'barrel col-plan' },
-  { data: { id: 'hunt',      label: '新居探し\n・内見', },            classes: 'ellipse col-plan' },
-  { data: { id: 'apply',     label: '申し込み\n・入居審査', },        classes: 'diamond col-contract' },
-  { data: { id: 'rejected',  label: '審査落ち\n→再検索', },          classes: 'diamond col-red' },
-  { data: { id: 'contract',  label: '賃貸契約\n・入金', },            classes: 'round   col-contract' },
+  { data: { id: 'decide',      label: '引越し\\n決意・決断' },               classes: 'diamond col-plan' },
+  { data: { id: 'check-now',   label: '現状把握\\n(賃貸契約状況\\n違約金確認)', }, classes: 'round   col-plan' },
+  { data: { id: 'budget',      label: '予算・条件\\n整理(エリア/\\n広さ/家賃上限)', }, classes: 'barrel  col-plan' },
+  { data: { id: 'info-gather', label: '物件情報収集\\n(不動産サイト\\n口コミ調査)', },  classes: 'ellipse col-plan' },
+  { data: { id: 'hunt',        label: '物件比較\\n・内見', },                   classes: 'ellipse col-plan' },
+  { data: { id: 'apply',       label: '申し込み\\n・入居審査', },               classes: 'diamond col-contract' },
+  { data: { id: 'guarantor',   label: '連帯保証人\\n手配', },                  classes: 'round   col-contract' },
+  { data: { id: 'fire-ins',    label: '火災保険加入', },                      classes: 'round   col-contract' },
+  { data: { id: 'rejected',    label: '審査落ち\\n→再検索', },                 classes: 'diamond col-red' },
+  { data: { id: 'contract',    label: '賃貸契約\\n・初期費用振込\\n(重要事項説明)', },  classes: 'round   col-contract' },
 
   // ★ マイルストーン1
-  { data: { id: 'date-set',  label: '引越し日\n確定！', },            classes: 'hexagon milestone' },
+  { data: { id: 'date-set',    label: '引越し日\\n確定！', },                  classes: 'hexagon milestone' },
 
-  // ===== 旧居処理 (col-old) =====
-  { data: { id: 'cancel',    label: '現住所\n解約通知\n(1ヶ月前まで)', },   classes: 'ellipse col-old' },
-  { data: { id: 'restore',   label: '原状回復\n・壁紙補修\n・クリーニング', }, classes: 'ellipse col-old' },
-  { data: { id: 'clean-old', label: '旧居清掃\n(搬出後)', },               classes: 'ellipse col-old' },
-  { data: { id: 'inspect',   label: '旧居立会い\n・鍵返却\n(当日)', },      classes: 'diamond col-old' },
-  { data: { id: 'deposit',   label: '敷金精算\n(後日)', },                 classes: 'round   col-old' },
+  // ===== 旧居処理 =====
+  { data: { id: 'cancel-now',  label: '現住所解約通知\\n(1ヶ月前まで)', },         classes: 'ellipse col-old' },
+  { data: { id: 'moveout-adj', label: '退去日調整\\n(管理会社と日程\\nすり合わせ)', },  classes: 'diamond col-old' },
+  { data: { id: 'restore',     label: '原状回復\\n(壁紙補修/\\nクリーニング)', },      classes: 'ellipse col-old' },
+  { data: { id: 'clean-old',   label: '旧居清掃\\n(搬出後)', },                     classes: 'ellipse col-old' },
+  { data: { id: 'inspect',     label: '旧居立会い\\n・鍵返却\\n(当日)', },            classes: 'diamond col-old' },
+  { data: { id: 'key-return',  label: '鍵返却方法\\n確認', },                       classes: 'round   col-old' },
+  { data: { id: 'deposit',     label: '敷金精算\\n(後日)', },                       classes: 'round   col-old' },
 
   // ===== 業者手配 =====
-  { data: { id: 'm-quote',   label: '引越し業者\n見積もり比較\n(2〜3社)', },   classes: 'diamond col-plan' },
-  { data: { id: 'm-book',    label: '業者発注\n・日程確定', },                 classes: 'round   col-plan' },
+  { data: { id: 'm-quote',     label: '引越し業者\\n見積もり比較\\n(2〜3社)', },         classes: 'diamond col-plan' },
+  { data: { id: 'm-option',    label: 'オプション追加\\n(家電設置/\\n追加梱包)', },        classes: 'round   col-plan' },
+  { data: { id: 'm-book',      label: '業者発注\\n・日程確定', },                       classes: 'round   col-plan' },
+  { data: { id: 'road-permit', label: '道路使用許可\\n申請(駐車禁止\\n区域の場合)', },      classes: 'round   col-plan' },
+  { data: { id: 'elevator',    label: 'エレベーター\\n予約(マンション\\nの場合)', },        classes: 'round   col-plan' },
 
-  // ===== 荷造り (col-pack) =====
-  { data: { id: 'declutter',    label: '不用品処分\n(売る/捨てる/\n譲る/寄付)', },      classes: 'ellipse col-pack' },
-  { data: { id: 'pack-supply',  label: '梱包材調達\n(段ボール/テープ/\n緩衝材/マジック)', }, classes: 'round   col-pack' },
-  { data: { id: 'pack-1',       label: '荷造り①\n(非日常品)\n本・服・飾り物', },          classes: 'ellipse col-pack' },
-  { data: { id: 'pack-2',       label: '荷造り②\n(中頻度品)\n調理器具・予備日用品', },      classes: 'ellipse col-pack' },
-  { data: { id: 'valuables',    label: '貴重品・\n重要書類を\nひとまとめに', },             classes: 'diamond col-pack' },
-  { data: { id: 'pack-3',       label: '荷造り③\n(最終日用品)\n当日使う分だけ残す', },      classes: 'ellipse col-pack' },
+  // ===== 荷造り =====
+  { data: { id: 'declutter',   label: '不用品処分\\n(売る/捨てる/\\n譲る/寄付)', },          classes: 'ellipse col-pack' },
+  { data: { id: 'bulky-trash', label: '粗大ゴミ\\n収集予約', },                            classes: 'round   col-pack' },
+  { data: { id: 'flea-market', label: 'フリマ/\\nメルカリ出品', },                         classes: 'round   col-pack' },
+  { data: { id: 'pack-supply', label: '梱包材調達\\n(段ボール/テープ/\\n緩衝材/マジック)', },  classes: 'round   col-pack' },
+  { data: { id: 'pack-1',      label: '荷造り①\\n(非日常品)\\n本・服・飾り物', },             classes: 'ellipse col-pack' },
+  { data: { id: 'pack-2',      label: '荷造り②\\n(中頻度品)\\n調理器具/予備\\n日用品', },       classes: 'ellipse col-pack' },
+  { data: { id: 'valuables',   label: '貴重品・\\n重要書類を\\nひとまとめに', },               classes: 'diamond col-pack' },
+  { data: { id: 'pack-3',      label: '荷造り③\\n(最終日用品)\\n当日使う分\\nだけ残す', },       classes: 'ellipse col-pack' },
+  { data: { id: 'fridge',      label: '冷蔵庫\\n霜取り', },                                classes: 'ellipse col-pack' },
+  { data: { id: 'washer',      label: '洗濯機\\n水抜き', },                                classes: 'ellipse col-pack' },
+  { data: { id: 'data-wipe',   label: 'PC/HDD\\nデータ消去', },                            classes: 'ellipse col-pack' },
 
-  // ===== 手続き (col-paper) =====
-  { data: { id: 'moveout',    label: '転出届\n(旧市区町村)', },          classes: 'round   col-paper' },
-  { data: { id: 'movein',     label: '転入届\n(新市区町村)\n14日以内', },  classes: 'round   col-paper' },
-  { data: { id: 'util-stop',  label: '旧居\nライフライン\n停止連絡', },    classes: 'round   col-paper' },
-  { data: { id: 'util-order', label: '新居\nライフライン\n開通手配', },    classes: 'round   col-paper' },
-  { data: { id: 'internet',   label: 'インターネット\n移転手続き', },     classes: 'round   col-paper' },
-  { data: { id: 'address',    label: '住所変更一括\n(銀行/クレカ/\n保険/サブスク)', }, classes: 'barrel col-paper' },
-  { data: { id: 'mail-fwd',   label: '郵便転送\n申請', },                classes: 'round   col-paper' },
-  { data: { id: 'work',       label: '職場・学校に\n住所変更届', },       classes: 'round   col-paper' },
-  { data: { id: 'school',     label: '転校・転園\n手続き(該当時)', },     classes: 'round   col-paper' },
+  // ===== 手続き =====
+  { data: { id: 'moveout',     label: '転出届\\n(旧市区町村)', },              classes: 'round   col-paper' },
+  { data: { id: 'movein',      label: '転入届\\n(新市区町村)\\n14日以内', },    classes: 'round   col-paper' },
+  { data: { id: 'util-stop',   label: '旧居\\nライフライン\\n停止連絡', },      classes: 'round   col-paper' },
+  { data: { id: 'util-order',  label: '新居\\nライフライン\\n開通手配', },      classes: 'round   col-paper' },
+  { data: { id: 'internet',    label: 'インターネット\\n移転手続き', },        classes: 'round   col-paper' },
+  { data: { id: 'mynumber',    label: 'マイナンバー\\n住所変更', },            classes: 'round   col-paper' },
+  { data: { id: 'license',     label: '免許証\\n住所変更', },                 classes: 'round   col-paper' },
+  { data: { id: 'health-ins',  label: '保険証\\n住所変更', },                 classes: 'round   col-paper' },
+  { data: { id: 'address',     label: '銀行/クレカ\\n住所変更一括', },         classes: 'barrel  col-paper' },
+  { data: { id: 'subsc',       label: '各種サブスク\\n住所変更\\n(Amazon/Netflix/他)', }, classes: 'round   col-paper' },
+  { data: { id: 'mobile',      label: '携帯キャリア\\n住所変更', },           classes: 'round   col-paper' },
+  { data: { id: 'mail-fwd',    label: '郵便転送申請', },                     classes: 'round   col-paper' },
+  { data: { id: 'work',        label: '職場・学校に\\n住所変更届', },          classes: 'round   col-paper' },
+  { data: { id: 'car',         label: '車の名義変更\\n・保管場所変更\\n(該当時)', }, classes: 'round   col-paper' },
+  { data: { id: 'school',      label: '転校・転園\\n手続き(該当時)', },       classes: 'round   col-paper' },
 
-  // ===== ★ ANDゲート（複数前提の合流点） =====
-  { data: { id: 'load-ready', label: '搬出準備OK！\n▸ 業者発注済み\n▸ 荷造り完了\n▸ 貴重品まとめ完了' }, classes: 'hexagon andgate' },
-  { data: { id: 'old-clear',  label: '旧居明渡しOK！\n▸ 搬出完了\n▸ 清掃完了' },              classes: 'hexagon andgate' },
-  { data: { id: 'life-ready', label: '生活基盤OK！\n▸ 寝床確保\n▸ 転入届\n▸ 買い出し完了' },    classes: 'hexagon andgate' },
+  // ===== ANDゲート =====
+  { data: { id: 'load-ready',  label: '搬出準備OK！\\n▸ 業者発注済み\\n▸ 荷造り完了\\n▸ 貴重品まとめ完了' }, classes: 'hexagon andgate' },
+  { data: { id: 'old-clear',   label: '旧居明渡しOK！\\n▸ 搬出完了\\n▸ 清掃完了' },              classes: 'hexagon andgate' },
+  { data: { id: 'life-ready',  label: '生活基盤OK！\\n▸ 寝床確保\\n▸ 転入届\\n▸ 買い出し完了' },    classes: 'hexagon andgate' },
+  { data: { id: 'pre-ready',   label: '当日準備OK！\\n▸ 業者手配完了\\n▸ 荷造り③完了\\n▸ 解約通知済み' }, classes: 'hexagon andgate' },
 
-  // ===== 当日 (col-move) =====
-  { data: { id: 'load-out',   label: '業者到着\n・搬出', },               classes: 'ellipse col-move' },
-  { data: { id: 'key-get',    label: '新居到着\n・鍵受け取り', },          classes: 'hexagon col-move' },
-  { data: { id: 'load-in',    label: '新居へ\n搬入', },                   classes: 'ellipse col-move' },
-  { data: { id: 'util-on',    label: 'ガス立会い\n・水道/電気\n開通確認', }, classes: 'round   col-move' },
-  { data: { id: 'furniture',  label: '家具配置\n・大型家電\n設置', },      classes: 'ellipse col-move' },
-  { data: { id: 'bed-prep',   label: '寝床確保\n(最優先!)', },             classes: 'diamond col-move' },
-  { data: { id: 'trouble',    label: '引越し\nトラブル！\n(雨天/渋滞/破損)', }, classes: 'diamond col-red' },
+  // ===== 当日 =====
+  { data: { id: 'load-out',    label: '業者到着\\n・搬出', },               classes: 'ellipse col-move' },
+  { data: { id: 'key-get',     label: '新居到着\\n・鍵受け取り', },          classes: 'hexagon col-move' },
+  { data: { id: 'load-in',     label: '新居へ\\n搬入', },                   classes: 'ellipse col-move' },
+  { data: { id: 'util-on',     label: 'ガス立会い\\n・水道/電気\\n開通確認', }, classes: 'round   col-move' },
+  { data: { id: 'furniture',   label: '家具配置\\n・大型家電\\n設置', },      classes: 'ellipse col-move' },
+  { data: { id: 'bed-prep',    label: '寝床確保\\n(最優先!)', },             classes: 'diamond col-move' },
+  { data: { id: 'curtain',     label: 'カーテン取付', },                    classes: 'round   col-move' },
+  { data: { id: 'lighting',    label: '照明器具\\n取付', },                  classes: 'round   col-move' },
+  { data: { id: 'ac-install',  label: 'エアコン取付\\n(業者手配済み)', },     classes: 'round   col-move' },
+  { data: { id: 'clean-new',   label: '新居\\n搬入前掃除', },                classes: 'ellipse col-move' },
+  { data: { id: 'security',    label: 'セキュリティ\\n設定(鍵/防犯)', },      classes: 'round   col-move' },
+  { data: { id: 'trouble',     label: '引越し\\nトラブル！\\n(雨天/渋滞/破損)', }, classes: 'diamond col-red' },
 
-  // ===== 引越し後 (col-after) =====
-  { data: { id: 'unpack',     label: '荷解き\n(段ボール片付け)', },    classes: 'ellipse col-after' },
-  { data: { id: 'shopping',   label: '足りないもの\n買い出し', },      classes: 'round   col-after' },
-  { data: { id: 'neighbor',   label: '近隣挨拶', },                   classes: 'round   col-after' },
-  { data: { id: 'settle',     label: '新生活\n定着！', },               classes: 'hexagon col-after' },
-  { data: { id: 'old-close',  label: '旧居関連\n完全クローズ', },       classes: 'round   col-after' },
+  // ===== 引越し後 =====
+  { data: { id: 'unpack',      label: '荷解き\\n(段ボール片付け)', },    classes: 'ellipse col-after' },
+  { data: { id: 'shopping',    label: '足りないもの\\n買い出し', },      classes: 'round   col-after' },
+  { data: { id: 'neighbor',    label: '近隣挨拶', },                   classes: 'round   col-after' },
+  { data: { id: 'trash-rule',  label: 'ゴミ出し\\nルール確認', },       classes: 'round   col-after' },
+  { data: { id: 'community',   label: '自治会・\\n町内会加入', },        classes: 'round   col-after' },
+  { data: { id: 'area-check',  label: '地域把握\\n(病院/スーパー\\n/薬局)', }, classes: 'round   col-after' },
+  { data: { id: 'settle',      label: '新生活\\n定着！', },             classes: 'hexagon col-after' },
+  { data: { id: 'old-close',   label: '旧居関連\\n完全クローズ', },     classes: 'round   col-after' },
 ];
 
 const edges = [
   // =====【フェーズ0: 家探し〜契約】=====
-  { data: { source: 'start',   target: 'decide' },    classes: 'main' },
-  { data: { source: 'decide',  target: 'budget' },    classes: 'main' },
-  { data: { source: 'budget',  target: 'hunt' },      classes: 'main' },
-  { data: { source: 'hunt',    target: 'apply' },     classes: 'main' },
-  { data: { source: 'apply',   target: 'contract' },  classes: 'main' },
+  { data: { source: 'start',     target: 'decide' },      classes: 'main' },
+  { data: { source: 'decide',    target: 'check-now' },   classes: 'main' },
+  { data: { source: 'check-now', target: 'budget' },      classes: 'main' },
+  { data: { source: 'budget',    target: 'info-gather' }, classes: 'main' },
+  { data: { source: 'info-gather',target: 'hunt' },       classes: 'main' },
+  { data: { source: 'hunt',      target: 'apply' },       classes: 'main' },
+  { data: { source: 'apply',     target: 'guarantor' },   classes: 'main' },
+  { data: { source: 'guarantor', target: 'fire-ins' },    classes: 'dashed' },
+  { data: { source: 'apply',     target: 'contract' },    classes: 'main' },
+  { data: { source: 'fire-ins',  target: 'contract' },    classes: 'main' },
 
   // 審査フィードバック
   { data: { source: 'apply',    target: 'rejected' },  classes: 'fb' },
@@ -147,43 +181,76 @@ const edges = [
   // =====【引越し日確定 → 各ストリーム分岐】=====
 
   // --- ストリームA: 旧居処理 ---
-  { data: { source: 'date-set', target: 'cancel' },    classes: 'main' },
-  { data: { source: 'cancel',   target: 'restore' },   classes: 'dashed' },
+  { data: { source: 'date-set',    target: 'cancel-now' },   classes: 'main' },
+  { data: { source: 'cancel-now',  target: 'moveout-adj' },  classes: 'main' },
+  { data: { source: 'moveout-adj', target: 'restore' },      classes: 'dashed' },
+  { data: { source: 'moveout-adj', target: 'key-return' },   classes: 'dashed' },
 
   // --- ストリームB: 業者手配 ---
-  { data: { source: 'date-set', target: 'm-quote' },   classes: 'main' },
-  { data: { source: 'm-quote',  target: 'm-book' },    classes: 'main' },
+  { data: { source: 'date-set',  target: 'm-quote' },   classes: 'main' },
+  { data: { source: 'm-quote',   target: 'm-option' },  classes: 'dashed' },
+  { data: { source: 'm-quote',   target: 'm-book' },    classes: 'main' },
+  { data: { source: 'm-book',    target: 'road-permit' },classes: 'dashed' },
+  { data: { source: 'm-book',    target: 'elevator' },  classes: 'dashed' },
 
-  // --- ストリームC: 荷造り (並行スタート) ---
+  // --- ストリームC: 荷造り ---
   { data: { source: 'date-set',   target: 'declutter' },   classes: 'dashed' },
+
+  // 不用品処理チェーン
+  { data: { source: 'declutter',  target: 'bulky-trash' }, classes: 'dashed' },
+  { data: { source: 'declutter',  target: 'flea-market' }, classes: 'dashed' },
 
   // 荷造りチェーン
   { data: { source: 'declutter',  target: 'pack-supply' }, classes: 'main' },
-  { data: { source: 'declutter',  target: 'pack-2' },      classes: 'main' },
-  { data: { source: 'declutter',  target: 'valuables' },   classes: 'dashed' },
   { data: { source: 'pack-supply',target: 'pack-1' },      classes: 'main' },
   { data: { source: 'pack-1',     target: 'pack-2' },      classes: 'main' },
+  { data: { source: 'declutter',  target: 'pack-2' },      classes: 'main' },
   { data: { source: 'pack-2',     target: 'pack-3' },      classes: 'main' },
+  { data: { source: 'declutter',  target: 'valuables' },   classes: 'dashed' },
 
-  // --- ストリームD: 手続き群 (date-setから並行) ---
-  { data: { source: 'date-set', target: 'moveout' },   classes: 'main' },
-  { data: { source: 'date-set', target: 'util-stop' }, classes: 'dashed' },
-  { data: { source: 'date-set', target: 'util-order' },classes: 'dashed' },
-  { data: { source: 'date-set', target: 'internet' },  classes: 'dashed' },
-  { data: { source: 'date-set', target: 'address' },   classes: 'dashed' },
-  { data: { source: 'date-set', target: 'mail-fwd' },  classes: 'dashed' },
-  { data: { source: 'date-set', target: 'work' },      classes: 'dashed' },
-  { data: { source: 'date-set', target: 'school' },    classes: 'dashed' },
+  // 家電準備（直前）
+  { data: { source: 'pack-2',     target: 'fridge' },      classes: 'dashed' },
+  { data: { source: 'pack-2',     target: 'washer' },      classes: 'dashed' },
+  { data: { source: 'pack-2',     target: 'data-wipe' },   classes: 'dashed' },
+  { data: { source: 'fridge',     target: 'pack-3' },      classes: 'main' },
+  { data: { source: 'washer',     target: 'pack-3' },      classes: 'main' },
+
+  // --- ストリームD: 手続き群 ---
+  { data: { source: 'date-set',   target: 'moveout' },   classes: 'main' },
+  { data: { source: 'date-set',   target: 'util-stop' }, classes: 'dashed' },
+  { data: { source: 'date-set',   target: 'util-order' },classes: 'dashed' },
+  { data: { source: 'date-set',   target: 'internet' },  classes: 'dashed' },
+  { data: { source: 'date-set',   target: 'mynumber' },  classes: 'dashed' },
+  { data: { source: 'date-set',   target: 'license' },   classes: 'dashed' },
+  { data: { source: 'date-set',   target: 'health-ins' },classes: 'dashed' },
+  { data: { source: 'date-set',   target: 'address' },   classes: 'dashed' },
+  { data: { source: 'date-set',   target: 'subsc' },     classes: 'dashed' },
+  { data: { source: 'date-set',   target: 'mobile' },    classes: 'dashed' },
+  { data: { source: 'date-set',   target: 'mail-fwd' },  classes: 'dashed' },
+  { data: { source: 'date-set',   target: 'work' },      classes: 'dashed' },
+  { data: { source: 'date-set',   target: 'car' },       classes: 'dashed' },
+  { data: { source: 'date-set',   target: 'school' },    classes: 'dashed' },
+
   // 転出→転入の順序依存
-  { data: { source: 'moveout',   target: 'movein' },    classes: 'main' },
+  { data: { source: 'moveout',    target: 'movein' },    classes: 'main' },
+  // 住所変更系は転入後
+  { data: { source: 'movein',     target: 'mynumber' },  classes: 'dashed' },
+  { data: { source: 'movein',     target: 'license' },   classes: 'dashed' },
+  { data: { source: 'movein',     target: 'health-ins' },classes: 'dashed' },
 
-  // =====【 ANDゲート①: 搬出準備OK 】=====
+  // =====【 ANDゲート①: 当日準備OK 】=====
+  { data: { source: 'm-book',     target: 'pre-ready' },   classes: 'main' },
+  { data: { source: 'pack-3',     target: 'pre-ready' },   classes: 'main' },
+  { data: { source: 'cancel-now', target: 'pre-ready' },   classes: 'main' },
+
+  // =====【 ANDゲート②: 搬出準備OK 】=====
   { data: { source: 'm-book',     target: 'load-ready' },  classes: 'main' },
   { data: { source: 'pack-3',     target: 'load-ready' },  classes: 'main' },
   { data: { source: 'valuables',  target: 'load-ready' },  classes: 'main' },
 
   // =====【当日】=====
   // 準備完了→搬出
+  { data: { source: 'pre-ready',  target: 'load-out' },    classes: 'main' },
   { data: { source: 'load-ready', target: 'load-out' },    classes: 'main' },
 
   // 旧居ルート（搬出→清掃→明渡しゲート→立会い）
@@ -192,8 +259,13 @@ const edges = [
 
   // 新居ルート（搬出→新居移動→鍵受取→搬入）
   { data: { source: 'load-out',   target: 'key-get' },     classes: 'main' },
+  { data: { source: 'load-out',   target: 'clean-new' },   classes: 'main' },
+  { data: { source: 'clean-new',  target: 'key-get' },     classes: 'dashed' },
 
-  // =====【 ANDゲート②: 旧居明渡しOK 】=====
+  // セキュリティ設定（キーゲット後すぐ）
+  { data: { source: 'key-get',    target: 'security' },    classes: 'dashed' },
+
+  // =====【 ANDゲート③: 旧居明渡しOK 】=====
   { data: { source: 'load-out',   target: 'old-clear' },   classes: 'main' },
   { data: { source: 'clean-old',  target: 'old-clear' },   classes: 'main' },
   { data: { source: 'old-clear',  target: 'inspect' },     classes: 'main' },
@@ -202,16 +274,19 @@ const edges = [
   { data: { source: 'inspect',    target: 'deposit' },     classes: 'main' },
   { data: { source: 'deposit',    target: 'old-close' },   classes: 'main' },
 
-  // 搬入に必要なもの: 鍵 + 荷物到着(搬出完了)
+  // 搬入に必要なもの: 鍵 + 荷物到着
   { data: { source: 'key-get',    target: 'load-in' },     classes: 'main' },
   { data: { source: 'load-out',   target: 'load-in' },     classes: 'main' },
 
-  // 新居セットアップ
+  // 新居搬入後セットアップ
   { data: { source: 'load-in',    target: 'bed-prep' },    classes: 'main' },
   { data: { source: 'load-in',    target: 'util-on' },     classes: 'main' },
   { data: { source: 'util-order', target: 'util-on' },     classes: 'main' },
   { data: { source: 'load-in',    target: 'furniture' },   classes: 'main' },
   { data: { source: 'util-on',    target: 'furniture' },   classes: 'main' },
+  { data: { source: 'furniture',  target: 'curtain' },     classes: 'dashed' },
+  { data: { source: 'furniture',  target: 'lighting' },    classes: 'dashed' },
+  { data: { source: 'furniture',  target: 'ac-install' },  classes: 'dashed' },
 
   // トラブル
   { data: { source: 'load-out',   target: 'trouble', label: '雨天/渋滞' }, classes: 'fb' },
@@ -222,16 +297,22 @@ const edges = [
   { data: { source: 'bed-prep',   target: 'unpack' },      classes: 'main' },
   { data: { source: 'unpack',     target: 'shopping' },    classes: 'dashed' },
   { data: { source: 'unpack',     target: 'neighbor' },    classes: 'dashed' },
+  { data: { source: 'unpack',     target: 'trash-rule' },  classes: 'dashed' },
+  { data: { source: 'unpack',     target: 'community' },   classes: 'dashed' },
+  { data: { source: 'unpack',     target: 'area-check' },  classes: 'dashed' },
 
-  // =====【 ANDゲート③: 生活基盤OK 】=====
+  // =====【 ANDゲート④: 生活基盤OK 】=====
   { data: { source: 'bed-prep',   target: 'life-ready' },  classes: 'main' },
   { data: { source: 'movein',     target: 'life-ready' },  classes: 'main' },
   { data: { source: 'shopping',   target: 'life-ready' },  classes: 'main' },
 
-  // 定着には生活基盤＋近隣挨拶＋旧居クローズ
+  // 定着へ
   { data: { source: 'life-ready', target: 'settle' },      classes: 'main' },
   { data: { source: 'neighbor',   target: 'settle' },      classes: 'dashed' },
   { data: { source: 'old-close',  target: 'settle' },      classes: 'dashed' },
+  { data: { source: 'trash-rule', target: 'settle' },      classes: 'dashed' },
+  { data: { source: 'community',  target: 'settle' },      classes: 'dashed' },
+  { data: { source: 'area-check', target: 'settle' },      classes: 'dashed' },
 
   // GOAL
   { data: { source: 'settle', target: 'goal' }, classes: 'main' },
@@ -240,10 +321,10 @@ const edges = [
 const elements = { nodes, edges };
 const layout = {
   name: 'cose',
-  nodeRepulsion: 20000,
-  idealEdgeLength: 190,
-  gravity: 0.7,
-  numIter: 1200,
+  nodeRepulsion: 22000,
+  idealEdgeLength: 200,
+  gravity: 0.6,
+  numIter: 1500,
   animate: true,
   animationDuration: 500
 };
