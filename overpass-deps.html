@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title>TryHackMe Overpass 攻撃チェーン — ANDゲート版</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: #eff1f5; font-family: 'Segoe UI', sans-serif; height: 100vh; display: flex; flex-direction: column; }
+
+    header {
+      padding: 8px 14px;
+      background: #e6e9ef;
+      border-bottom: 1px solid #ccd0da;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-shrink: 0;
+    }
+    header h1 { font-size: 13px; color: #1e66f5; }
+
+    .controls { display: flex; gap: 6px; margin-left: auto; }
+    .controls button {
+      background: #ccd0da; border: 1px solid #bcc0cc; color: #4c4f69;
+      border-radius: 6px; padding: 4px 11px; cursor: pointer; font-size: 12px;
+    }
+    .controls button:hover { background: #bcc0cc; }
+    .hint { font-size: 11px; color: #9ca0b0; }
+
+    .legend {
+      display: flex;
+      gap: 12px;
+      padding: 5px 14px;
+      background: #e6e9ef;
+      border-bottom: 1px solid #ccd0da;
+      flex-shrink: 0;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+    .legend-item { display: flex; align-items: center; gap: 5px; font-size: 11px; color: #5c5f73; }
+    .legend-dot { width: 12px; height: 12px; border-radius: 2px; }
+    .legend-sep { color: #bcc0cc; font-size: 14px; }
+    .legend-line { display: flex; align-items: center; gap: 4px; font-size: 11px; color: #5c5f73; }
+
+    #cy { flex: 1; }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>TryHackMe Overpass 攻撃チェーン — ANDゲート版</h1>
+  <span class="hint">ドラッグ: パン / ホイール: ズーム / Re-layout で再整列</span>
+  <div class="controls">
+    <button onclick="cy.fit()">Fit</button>
+    <button onclick="cy.zoom(cy.zoom() * 1.3); cy.center()">＋</button>
+    <button onclick="cy.zoom(cy.zoom() * 0.75); cy.center()">－</button>
+    <button onclick="cy.layout(layout).run()">Re-layout</button>
+  </div>
+</header>
+
+<div class="legend">
+  <div class="legend-item"><div class="legend-dot" style="background:#e6e9ef;border:2px solid:#1e66f5"></div>START / GOAL</div>
+  <div class="legend-sep">|</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#dce0e8;border:1px solid:#bcc0cc"></div>偵察</div>
+  <div class="legend-sep">|</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#8caaee"></div>Web</div>
+  <div class="legend-sep">|</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#74c7ec"></div>認証情報</div>
+  <div class="legend-sep">|</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#a6e3a1"></div>初期アクセス</div>
+  <div class="legend-sep">|</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#fe640b"></div>権限昇格</div>
+  <div class="legend-sep">|</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#df8e1d"></div>完了</div>
+  <div class="legend-sep">|</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#d20f39;color:#fff"></div>行き止まり</div>
+  <div class="legend-sep">|</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#fff;border:2px dashed #40a02b"></div>ANDゲート</div>
+  <div class="legend-sep">|</div>
+  <div class="legend-line">
+    <svg width="28" height="10"><line x1="0" y1="5" x2="28" y2="5" stroke="#1e66f5" stroke-width="3"/></svg> メイン
+  </div>
+  <div class="legend-line">
+    <svg width="28" height="10"><line x1="0" y1="5" x2="28" y2="5" stroke="#6c6f85" stroke-width="2" stroke-dasharray="6,3"/></svg> 並行
+  </div>
+  <div class="legend-line">
+    <svg width="28" height="10"><line x1="0" y1="5" x2="28" y2="5" stroke="#d20f39" stroke-width="2" stroke-dasharray="3,3"/></svg> フィードバック
+  </div>
+</div>
+
+<div id="cy"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/cytoscape@3.30.2/dist/cytoscape.min.js"></script>
+<script>
+const nodes = [
+  // ===== START / GOAL =====
+  { data: { id: 'start', label: 'START' }, classes: 'startgoal' },
+  { data: { id: 'goal',  label: 'GOAL'  }, classes: 'startgoal' },
+
+  // ===== 偵察 (白) =====
+  { data: { id: 'nmap',        label: 'nmap\n(22,80)' },           classes: 'ellipse col-white' },
+  { data: { id: 'feroxbuster', label: 'feroxbuster' },             classes: 'round   col-white' },
+  { data: { id: 'admin-path',  label: '/admin\n発見' },             classes: 'hexagon col-white' },
+  { data: { id: 'downloads',   label: '/downloads' },               classes: 'ellipse col-white' },
+  { data: { id: 'aboutus',     label: '/aboutus' },                 classes: 'ellipse col-white' },
+
+  // ===== Web (青) =====
+  { data: { id: 'login-js',     label: 'login.js\n解析' },          classes: 'ellipse col-blue' },
+  { data: { id: 'cookie-bypass', label: 'SessionToken\nバイパス' }, classes: 'diamond col-blue' },
+  { data: { id: 'admin-panel',  label: '管理パネル' },             classes: 'hexagon col-blue' },
+  { data: { id: 'james-key',    label: 'james\n暗号化SSH鍵' },     classes: 'barrel  col-blue' },
+
+  // ===== 認証情報 (水) =====
+  { data: { id: 'ssh2john',   label: 'ssh2john' },                 classes: 'ellipse col-sky' },
+  { data: { id: 'john-crack', label: 'john\nrockyou' },            classes: 'ellipse col-sky' },
+  { data: { id: 'james13',    label: 'james13\n取得' },            classes: 'hexagon col-sky' },
+
+  // ===== ANDゲート: SSHログインOK =====
+  { data: { id: 'ssh-ready', label: 'SSHログインOK！\n▸ james SSH鍵\n▸ james13' }, classes: 'hexagon andgate' },
+
+  // ===== 初期アクセス (緑) =====
+  { data: { id: 'ssh-james',  label: 'SSH\njames' },               classes: 'hexagon col-green' },
+  { data: { id: 'user-flag',  label: 'user.txt' },                 classes: 'round   col-green' },
+
+  // ===== 権限昇格 (橙) =====
+  { data: { id: 'cron-find',      label: 'cron解析\n(buildscript)' }, classes: 'ellipse col-orange' },
+  { data: { id: 'hosts-writable', label: '/etc/hosts\n666' },        classes: 'diamond col-orange' },
+  { data: { id: 'fake-script',    label: '偽\nbuildscript.sh' },     classes: 'ellipse col-orange' },
+  { data: { id: 'nc-listener',    label: 'nc\n待受' },               classes: 'ellipse col-orange' },
+  { data: { id: 'hosts-hijack',   label: 'hosts\n偽装' },             classes: 'diamond col-orange' },
+
+  // ===== ANDゲート: rootシェルOK =====
+  { data: { id: 'root-ready', label: 'rootシェルOK！\n▸ jamesシェル\n▸ 攻撃者インフラ\n▸ hosts偽装' }, classes: 'hexagon andgate' },
+
+  { data: { id: 'root-shell', label: 'root\nシェル' },             classes: 'hexagon col-orange' },
+
+  // ===== 完了 (黄) =====
+  { data: { id: 'root-flag', label: 'root.txt' },                  classes: 'hexagon col-yellow' },
+
+  // ===== 行き止まり (赤) =====
+  { data: { id: 'sudo-dead', label: 'sudo -l\n行き止まり' },        classes: 'diamond col-red' },
+  { data: { id: 'suid-dead', label: 'SUID\n無用' },                classes: 'diamond col-red' },
+];
+
+const edges = [
+  // ===== START → 偵察 =====
+  { data: { source: 'start', target: 'nmap' }, classes: 'main' },
+
+  { data: { source: 'nmap',        target: 'feroxbuster' }, classes: 'main' },
+  { data: { source: 'feroxbuster', target: 'admin-path' },  classes: 'main' },
+  { data: { source: 'feroxbuster', target: 'downloads' },    classes: 'dashed' },
+  { data: { source: 'feroxbuster', target: 'aboutus' },      classes: 'dashed' },
+
+  // --- 偵察 → Web ---
+  { data: { source: 'admin-path', target: 'login-js' }, classes: 'main' },
+
+  // --- Web ---
+  { data: { source: 'login-js',      target: 'cookie-bypass' }, classes: 'main' },
+  { data: { source: 'cookie-bypass', target: 'admin-panel' },    classes: 'main' },
+  { data: { source: 'admin-panel',   target: 'james-key' },      classes: 'main' },
+  { data: { source: 'cookie-bypass', target: 'login-js', label: '失敗→再解析' }, classes: 'fb' },
+
+  // --- 認証情報 ---
+  { data: { source: 'james-key',  target: 'ssh2john' },   classes: 'main' },
+  { data: { source: 'ssh2john',   target: 'john-crack' }, classes: 'main' },
+  { data: { source: 'john-crack', target: 'james13' },    classes: 'main' },
+  { data: { source: 'john-crack', target: 'ssh2john', label: '失敗→辞書変更' }, classes: 'fb' },
+
+  // --- AND: ssh-ready ---
+  { data: { source: 'james-key', target: 'ssh-ready' }, classes: 'main' },
+  { data: { source: 'james13',   target: 'ssh-ready' }, classes: 'main' },
+
+  // --- 初期アクセス ---
+  { data: { source: 'ssh-ready', target: 'ssh-james' }, classes: 'main' },
+  { data: { source: 'ssh-james', target: 'user-flag' },  classes: 'main' },
+
+  // --- 権限昇格 調査 ---
+  { data: { source: 'ssh-james', target: 'cron-find' },      classes: 'main' },
+  { data: { source: 'ssh-james', target: 'hosts-writable' }, classes: 'main' },
+  { data: { source: 'ssh-james', target: 'sudo-dead' },      classes: 'fb' },
+  { data: { source: 'ssh-james', target: 'suid-dead' },      classes: 'fb' },
+
+  // --- 攻撃者インフラ（並行） ---
+  { data: { source: 'cron-find',      target: 'fake-script' },  classes: 'dashed' },
+  { data: { source: 'cron-find',      target: 'nc-listener' },  classes: 'dashed' },
+  { data: { source: 'hosts-writable', target: 'hosts-hijack' }, classes: 'main' },
+
+  // --- AND: root-ready ---
+  { data: { source: 'ssh-james',    target: 'root-ready' }, classes: 'main' },
+  { data: { source: 'fake-script',  target: 'root-ready' }, classes: 'main' },
+  { data: { source: 'nc-listener',  target: 'root-ready' }, classes: 'main' },
+  { data: { source: 'hosts-hijack', target: 'root-ready' }, classes: 'main' },
+
+  // --- root ---
+  { data: { source: 'root-ready', target: 'root-shell' }, classes: 'main' },
+  { data: { source: 'root-shell', target: 'root-flag' },  classes: 'main' },
+
+  // ===== GOAL =====
+  { data: { source: 'root-flag', target: 'goal' }, classes: 'main' },
+];
+
+const elements = { nodes, edges };
+const layout = {
+  name: 'cose',
+  nodeRepulsion: 20000,
+  idealEdgeLength: 190,
+  gravity: 0.7,
+  numIter: 1200,
+  animate: true,
+  animationDuration: 500
+};
+
+const cy = cytoscape({
+  container: document.getElementById('cy'),
+  elements,
+  style: [
+    {
+      selector: 'node',
+      style: {
+        label: 'data(label)',
+        'text-wrap': 'wrap',
+        'text-max-width': 110,
+        'font-size': 12,
+        'font-family': '"Noto Sans JP", "Segoe UI", sans-serif',
+        color: '#4c4f69',
+        'text-halign': 'center',
+        'text-valign': 'center',
+        'font-weight': 'bold',
+        'border-width': 2,
+        'border-color': '#9ca0b0',
+        width: 120,
+        height: 72,
+      }
+    },
+    // START / GOAL
+    {
+      selector: '.startgoal',
+      style: {
+        'background-color': '#e6e9ef',
+        'border-color': '#1e66f5',
+        'border-width': 4,
+        color: '#1e66f5',
+        'font-size': 16,
+        shape: 'round-octagon',
+        width: 100,
+        height: 70,
+      }
+    },
+    // Phase colors (Catppuccin Latte light mode)
+    { selector: '.col-white',  style: { 'background-color': '#dce0e8', 'border-color': '#bcc0cc' } },
+    { selector: '.col-blue',   style: { 'background-color': '#8caaee', 'border-color': '#7c9ae6', color: '#222' } },
+    { selector: '.col-sky',    style: { 'background-color': '#74c7ec', 'border-color': '#5bb9e3', color: '#222' } },
+    { selector: '.col-green',  style: { 'background-color': '#a6e3a1', 'border-color': '#85d687', color: '#333' } },
+    { selector: '.col-orange', style: { 'background-color': '#fe640b', 'border-color': '#e65a0a', color: '#fff' } },
+    { selector: '.col-red',    style: { 'background-color': '#d20f39', 'border-color': '#bb0d33', color: '#fff' } },
+    { selector: '.col-yellow', style: { 'background-color': '#df8e1d', 'border-color': '#c8801a', 'border-width': 3, color: '#222' } },
+    // Shapes
+    { selector: '.ellipse', style: { shape: 'ellipse' } },
+    { selector: '.hexagon', style: { shape: 'hexagon', width: 130, height: 80 } },
+    { selector: '.diamond', style: { shape: 'diamond', width: 100, height: 90 } },
+    { selector: '.round',   style: { shape: 'roundrectangle' } },
+    { selector: '.barrel',  style: { shape: 'round-rectangle', width: 140, height: 80 } },
+    // ANDゲート（白背景、緑破線枠、チェックリスト表示）
+    {
+      selector: '.andgate',
+      style: {
+        'background-color': '#fff',
+        'border-color': '#40a02b',
+        'border-width': 4,
+        'border-style': 'dashed',
+        color: '#196c21',
+        shape: 'hexagon',
+        width: 140,
+        height: 90,
+        'font-size': 11,
+      }
+    },
+    // Edges
+    {
+      selector: 'edge',
+      style: {
+        width: 2,
+        'line-color': '#6c6f85',
+        'target-arrow-color': '#6c6f85',
+        'target-arrow-shape': 'triangle',
+        'arrow-scale': 1,
+        'curve-style': 'bezier',
+        label: 'data(label)',
+        'font-size': 10,
+        color: '#5c5f73',
+        'text-background-color': '#eff1f5',
+        'text-background-opacity': 0.85,
+        'text-background-padding': 2,
+      }
+    },
+    // メイン依存（青実線）
+    { selector: '.main', style: { width: 4, 'line-color': '#1e66f5', 'target-arrow-color': '#1e66f5', 'z-index': 10 } },
+    // 並行可能（灰点線）
+    { selector: '.dashed', style: { 'line-style': 'dashed', 'line-dash-pattern': [6, 4], 'z-index': 5 } },
+    // フィードバック（赤破線）
+    {
+      selector: '.fb',
+      style: {
+        'line-style': 'dashed',
+        'line-dash-pattern': [3, 3],
+        width: 2.5,
+        'line-color': '#d20f39',
+        'target-arrow-color': '#d20f39',
+        'z-index': 15,
+        'target-arrow-shape': 'triangle-backcurve',
+        color: '#d20f39',
+      }
+    },
+    { selector: 'node:selected', style: { 'border-color': '#df8e1d', 'border-width': 3 } },
+  ],
+  layout,
+  wheelSensitivity: 0.3,
+  minZoom: 0.2,
+  maxZoom: 4,
+});
+</script>
+</body>
+</html>
