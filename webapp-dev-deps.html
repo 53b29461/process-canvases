@@ -1,458 +1,368 @@
-<!DOCTYPE html>
-<html lang="ja">
-<head>
-<meta charset="UTF-8">
-<title>Webサービス開発・ローンチ — vis-network版</title>
+<!doctype html>
+<html><head><meta charset="utf-8"><title>Webサービス開発・ローンチ — vis-network版</title>
+<script src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
 <style>
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { background: #eff1f5; font-family: 'Segoe UI', sans-serif; height: 100vh; display: flex; flex-direction: column; }
-  header {
-    padding: 8px 14px;
-    background: #e6e9ef;
-    border-bottom: 1px solid #ccd0da;
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    flex-shrink: 0;
-  }
-  header h1 { font-size: 13px; color: #1e66f5; }
-  .controls { display: flex; gap: 6px; margin-left: auto; }
-  .controls button {
-    background: #e6e9ef; border: 1px solid #bcc0cc; color: #4c4f69;
-    border-radius: 6px; padding: 3px 10px; cursor: pointer; font-size: 12px;
-  }
-  .controls button:hover { background: #dce0e8; }
-  .hint { font-size: 11px; color: #9ca0b0; }
-  .legend {
-    display: flex;
-    gap: 12px;
-    padding: 5px 14px;
-    background: #e6e9ef;
-    border-bottom: 1px solid #ccd0da;
-    flex-shrink: 0;
-    flex-wrap: wrap;
-    align-items: center;
-  }
-  .legend-item { display: flex; align-items: center; gap: 5px; font-size: 11px; color: #5c5f73; }
-  .legend-dot { width: 12px; height: 12px; border-radius: 2px; flex-shrink: 0; }
-  .legend-sep { color: #bcc0cc; font-size: 14px; }
-  .legend-line { display: flex; align-items: center; gap: 4px; font-size: 11px; color: #5c5f73; }
-  #network { flex: 1; min-height: 0; overflow: hidden; background: #eff1f5; }
-</style>
-</head>
-<body>
-<header>
-  <h1>Webサービス開発・ローンチ</h1>
-  <span class="hint">ドラッグ: パン / ノードドラッグ可 / ホイール: ズーム</span>
-  <div class="controls">
-    <button onclick="network.fit({animation:false})">Fit</button>
-    <button onclick="network.moveTo({scale:network.getScale()*1.3})">＋</button>
-    <button onclick="network.moveTo({scale:network.getScale()*0.75})">−</button>
-    <button onclick="network.setOptions({physics:{enabled:false}});network.setOptions({physics:{enabled:true,solver:'forceAtlas2Based',forceAtlas2Based:{gravitationalConstant:-60,centralGravity:0.006,springLength:160,springConstant:0.04,damping:0.5},stabilization:{enabled:true,iterations:400,updateInterval:25},maxVelocity:8,minVelocity:0.5}})">Re-layout</button>
-  </div>
-</header>
-<div class="legend">
-  <div class="legend-item"><div class="legend-dot" style="background:#e6e9ef;border:2px solid #1e66f5;border-radius:50%"></div>START / GOAL</div>
-  <div class="legend-sep">|</div>
-  <div class="legend-item"><div class="legend-dot" style="background:#dce0e8"></div>企画</div>
-  <div class="legend-item"><div class="legend-dot" style="background:#8caaee"></div>設計</div>
-  <div class="legend-item"><div class="legend-dot" style="background:#74c7ec"></div>開発</div>
-  <div class="legend-item"><div class="legend-dot" style="background:#a6e3a1"></div>テスト</div>
-  <div class="legend-item"><div class="legend-dot" style="background:#fe640b"></div>インフラ</div>
-  <div class="legend-item"><div class="legend-dot" style="background:#df8e1d"></div>リリース・運用</div>
-  <div class="legend-item"><div class="legend-dot" style="background:#d20f39"></div>トラブル</div>
-  <div class="legend-sep">|</div>
-  <div class="legend-item"><div class="legend-dot" style="background:#fff;border:2px dashed #40a02b"></div>ANDゲート</div>
-  <div class="legend-sep">|</div>
-  <div class="legend-line"><svg width="28" height="10"><line x1="0" y1="5" x2="28" y2="5" stroke="#1e66f5" stroke-width="3"/></svg> 依存</div>
-  <div class="legend-line"><svg width="28" height="10"><line x1="0" y1="5" x2="28" y2="5" stroke="#6c6f85" stroke-width="2" stroke-dasharray="6,3"/></svg> 並行</div>
-  <div class="legend-line"><svg width="28" height="10"><line x1="0" y1="5" x2="28" y2="5" stroke="#d20f39" stroke-width="2" stroke-dasharray="3,3"/></svg> フィードバック</div>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#eff1f5;font-family:'Helvetica Neue',Arial,sans-serif;overflow:hidden}
+#mynetwork{width:100vw;height:100vh}
+#controls{position:fixed;bottom:20px;right:20px;z-index:10;display:flex;gap:8px}
+#controls button{padding:8px 16px;background:#ffffff;border:2px solid #9ca0b0;border-radius:8px;cursor:pointer;font-size:20px;color:#4c4f69;transition:all .2s}
+#controls button:hover{background:#1e66f5;color:#fff;border-color:#1e66f5}
+#info{position:fixed;top:12px;left:50%;transform:translateX(-50%);z-index:10;background:rgba(255,255,255,.92);padding:6px 18px;border-radius:20px;font-size:18px;color:#4c4f69;border:1px solid #ccd0da;pointer-events:none;white-space:nowrap}
+#stats{position:fixed;bottom:20px;left:20px;z-index:10;background:rgba(255,255,255,.92);padding:6px 14px;border-radius:20px;font-size:16px;color:#6c6f85;border:1px solid #ccd0da}
+#mynetwork canvas{background:transparent!important}
+</style></head><body>
+<div id="mynetwork"></div>
+<div id="info">Webサービス開発</div>
+<div id="stats">ドラッグ=パン / ホイール=ズーム / ノードドラッグ可</div>
+<div id="controls">
+<button onclick="network.fit()">Fit</button>
+<button onclick="network.setOptions({physics:{enabled:true,solver:'forceAtlas2Based',forceAtlas2Based:{gravitationalConstant:-28,centralGravity:0.0001,springLength:200,springConstant:0.03,damping:0.2}}});network.stabilize(2000)">Re-layout</button>
+<button onclick="network.setOptions({physics:{enabled:false}})">Freeze</button>
 </div>
-<div id="network"></div>
-
-<script src="https://unpkg.com/vis-network@9.1.6/standalone/umd/vis-network.min.js"></script>
 <script>
-// ===== ノード定義 =====
-var nodes = [
+var nodes=new vis.DataSet([
   // START / GOAL
-  { id: 'start', label: 'START', shape: 'hexagon', color: { background: '#e6e9ef', border: '#1e66f5' }, borderWidth: 4, font: { color: '#1e66f5', size: 18 }, size: 28 },
-  { id: 'goal',  label: 'GOAL',  shape: 'hexagon', color: { background: '#e6e9ef', border: '#1e66f5' }, borderWidth: 4, font: { color: '#1e66f5', size: 18 }, size: 28 },
+  { id: 'start', label: 'START', shape: 'round-octagon', color: { background: '#e6e9ef', border: '#1e66f5' }, borderWidth: 4, font: { color:'#1a1a2e', size: 27 }, size: 42 },
+  { id: 'goal',  label: 'GOAL',  shape: 'round-octagon', color: { background: '#e6e9ef', border: '#1e66f5' }, borderWidth: 4, font: { color:'#1a1a2e', size: 27 }, size: 42 },
 
   // ========== フェーズ1: 企画 (白系) ==========
-  { id: 'p1-idea',       label: 'アイデア出し',                  shape: 'ellipse',     color: { background: '#dce0e8', border: '#bcc0cc' }, font: { size: 12 }, size: 22 },
-  { id: 'p1-research',   label: '市場調査',                      shape: 'ellipse',     color: { background: '#dce0e8', border: '#bcc0cc' }, font: { size: 12 }, size: 22 },
-  { id: 'p1-competitor', label: '競合分析',                      shape: 'ellipse',     color: { background: '#dce0e8', border: '#bcc0cc' }, font: { size: 12 }, size: 22 },
-  { id: 'p1-target',     label: 'ターゲット\nユーザー定義',      shape: 'diamond',     color: { background: '#dce0e8', border: '#bcc0cc' }, font: { size: 12 }, size: 22 },
-  { id: 'p1-revenue',    label: '収益モデル\n検討',              shape: 'diamond',     color: { background: '#dce0e8', border: '#bcc0cc' }, font: { size: 12 }, size: 22 },
-  { id: 'p1-plan',       label: '事業計画策定',                  shape: 'roundedRect', color: { background: '#dce0e8', border: '#bcc0cc' }, font: { size: 12 }, size: 22 },
-  { id: 'p1-budget',     label: '予算策定',                      shape: 'diamond',     color: { background: '#dce0e8', border: '#bcc0cc' }, font: { size: 12 }, size: 22 },
-  { id: 'p1-risk',       label: 'リスク分析',                    shape: 'diamond',     color: { background: '#dce0e8', border: '#bcc0cc' }, font: { size: 12 }, size: 22 },
-  { id: 'p1-tech',       label: '技術選定',                      shape: 'roundedRect', color: { background: '#dce0e8', border: '#bcc0cc' }, font: { size: 12 }, size: 22 },
-  { id: 'p1-schedule',   label: 'プロジェクト\n計画策定',        shape: 'hexagon',     color: { background: '#dce0e8', border: '#bcc0cc' }, font: { size: 12 }, size: 22 },
-  { id: 'p1-req',        label: '要件定義書\n作成',              shape: 'roundedRect', color: { background: '#dce0e8', border: '#bcc0cc' }, font: { size: 12 }, size: 22 },
-  { id: 'p1-priority',   label: '優先順位\n付け',                shape: 'diamond',     color: { background: '#dce0e8', border: '#bcc0cc' }, font: { size: 12 }, size: 22 },
+  { id: 'p1-idea',       label: 'アイデア出し',                  shape: 'round-octagon',     color: { background: '#dce0e8', border: '#bcc0cc' }, font: { size: 18 }, size: 33 },
+  { id: 'p1-research',   label: '市場調査',                      shape: 'round-octagon',     color: { background: '#dce0e8', border: '#bcc0cc' }, font: { size: 18 }, size: 33 },
+  { id: 'p1-competitor', label: '競合分析',                      shape: 'round-octagon',     color: { background: '#dce0e8', border: '#bcc0cc' }, font: { size: 18 }, size: 33 },
+  { id: 'p1-target',     label: 'ターゲット\nユーザー定義',      shape: 'round-octagon',     color: { background: '#dce0e8', border: '#bcc0cc' }, font: { size: 18 }, size: 33 },
+  { id: 'p1-revenue',    label: '収益モデル\n検討',              shape: 'round-octagon',     color: { background: '#dce0e8', border: '#bcc0cc' }, font: { size: 18 }, size: 33 },
+  { id: 'p1-plan',       label: '事業計画策定',                  shape: 'round-octagon', color: { background: '#dce0e8', border: '#bcc0cc' }, font: { size: 18 }, size: 33 },
+  { id: 'p1-budget',     label: '予算策定',                      shape: 'round-octagon',     color: { background: '#dce0e8', border: '#bcc0cc' }, font: { size: 18 }, size: 33 },
+  { id: 'p1-risk',       label: 'リスク分析',                    shape: 'round-octagon',     color: { background: '#dce0e8', border: '#bcc0cc' }, font: { size: 18 }, size: 33 },
+  { id: 'p1-tech',       label: '技術選定',                      shape: 'round-octagon', color: { background: '#dce0e8', border: '#bcc0cc' }, font: { size: 18 }, size: 33 },
+  { id: 'p1-schedule',   label: 'プロジェクト\n計画策定',        shape: 'round-octagon',     color: { background: '#dce0e8', border: '#bcc0cc' }, font: { size: 18 }, size: 33 },
+  { id: 'p1-req',        label: '要件定義書\n作成',              shape: 'round-octagon', color: { background: '#dce0e8', border: '#bcc0cc' }, font: { size: 18 }, size: 33 },
+  { id: 'p1-priority',   label: '優先順位\n付け',                shape: 'round-octagon',     color: { background: '#dce0e8', border: '#bcc0cc' }, font: { size: 18 }, size: 33 },
 
   // ANDゲート: 企画完了・要件定義完了
-  { id: 'g-plan-done',  label: '企画完了！\n▸ 事業計画\n▸ 技術選定\n▸ 予算・リスク', shape: 'hexagon', color: { background: '#fff', border: '#40a02b' }, borderWidth: 3, font: { color: '#196c21', size: 10 }, size: 30 },
-  { id: 'g-req-done',   label: '要件定義完了！\n▸ 要件定義書\n▸ 優先順位付け',       shape: 'hexagon', color: { background: '#fff', border: '#40a02b' }, borderWidth: 3, font: { color: '#196c21', size: 10 }, size: 30 },
+  { id: 'g-plan-done',  label: '企画完了！\n▸ 事業計画\n▸ 技術選定\n▸ 予算・リスク', shape: 'round-octagon', color: { background: '#fff', border: '#40a02b' }, borderWidth: 3, font: { color:'#1a1a2e', size: 15 }, size: 45 },
+  { id: 'g-req-done',   label: '要件定義完了！\n▸ 要件定義書\n▸ 優先順位付け',       shape: 'round-octagon', color: { background: '#fff', border: '#40a02b' }, borderWidth: 3, font: { color:'#1a1a2e', size: 15 }, size: 45 },
 
   // ========== フェーズ2: 設計 (青系) ==========
-  { id: 'p2-sitemap',    label: 'サイトマップ\n作成',            shape: 'ellipse',     color: { background: '#8caaee', border: '#7c9ae6' }, font: { color: '#222', size: 12 }, size: 22 },
-  { id: 'p2-wireframe',  label: 'ワイヤーフ\nレーム',            shape: 'ellipse',     color: { background: '#8caaee', border: '#7c9ae6' }, font: { color: '#222', size: 12 }, size: 22 },
-  { id: 'p2-mock',       label: '画面設計',                      shape: 'ellipse',     color: { background: '#8caaee', border: '#7c9ae6' }, font: { color: '#222', size: 12 }, size: 22 },
-  { id: 'p2-ui',         label: 'UIデザイン',                    shape: 'ellipse',     color: { background: '#8caaee', border: '#7c9ae6' }, font: { color: '#222', size: 12 }, size: 22 },
-  { id: 'p2-proto',      label: 'プロトタイプ\n作成',            shape: 'roundedRect', color: { background: '#8caaee', border: '#7c9ae6' }, font: { color: '#222', size: 12 }, size: 22 },
-  { id: 'p2-preview',    label: 'プロトタイプ\nレビュー',        shape: 'diamond',     color: { background: '#8caaee', border: '#7c9ae6' }, font: { color: '#222', size: 12 }, size: 22 },
-  { id: 'p2-screen-tx',  label: '画面遷移図',                    shape: 'hexagon',     color: { background: '#8caaee', border: '#7c9ae6' }, font: { color: '#222', size: 12 }, size: 22 },
-  { id: 'p2-db',         label: 'データベース\n設計',            shape: 'hexagon',     color: { background: '#8caaee', border: '#7c9ae6' }, font: { color: '#222', size: 12 }, size: 22 },
-  { id: 'p2-api',        label: 'API設計',                       shape: 'hexagon',     color: { background: '#8caaee', border: '#7c9ae6' }, font: { color: '#222', size: 12 }, size: 22 },
-  { id: 'p2-infra',      label: 'インフラ設計',                  shape: 'roundedRect', color: { background: '#8caaee', border: '#7c9ae6' }, font: { color: '#222', size: 12 }, size: 22 },
-  { id: 'p2-sec',        label: 'セキュリティ\n設計',            shape: 'diamond',     color: { background: '#8caaee', border: '#7c9ae6' }, font: { color: '#222', size: 12 }, size: 22 },
-  { id: 'p2-review',     label: '設計レビュー',                  shape: 'ellipse',     color: { background: '#8caaee', border: '#7c9ae6' }, font: { color: '#222', size: 12 }, size: 22 },
-  { id: 'p2-rev-fb',     label: '設計修正',                      shape: 'ellipse',     color: { background: '#8caaee', border: '#7c9ae6' }, font: { color: '#222', size: 12 }, size: 22 },
+  { id: 'p2-sitemap',    label: 'サイトマップ\n作成',            shape: 'round-octagon',     color: { background: '#8caaee', border: '#7c9ae6' }, font: { color: '#1a1a2e', size: 18 }, size: 33 },
+  { id: 'p2-wireframe',  label: 'ワイヤーフ\nレーム',            shape: 'round-octagon',     color: { background: '#8caaee', border: '#7c9ae6' }, font: { color: '#1a1a2e', size: 18 }, size: 33 },
+  { id: 'p2-mock',       label: '画面設計',                      shape: 'round-octagon',     color: { background: '#8caaee', border: '#7c9ae6' }, font: { color: '#1a1a2e', size: 18 }, size: 33 },
+  { id: 'p2-ui',         label: 'UIデザイン',                    shape: 'round-octagon',     color: { background: '#8caaee', border: '#7c9ae6' }, font: { color: '#1a1a2e', size: 18 }, size: 33 },
+  { id: 'p2-proto',      label: 'プロトタイプ\n作成',            shape: 'round-octagon', color: { background: '#8caaee', border: '#7c9ae6' }, font: { color: '#1a1a2e', size: 18 }, size: 33 },
+  { id: 'p2-preview',    label: 'プロトタイプ\nレビュー',        shape: 'round-octagon',     color: { background: '#8caaee', border: '#7c9ae6' }, font: { color: '#1a1a2e', size: 18 }, size: 33 },
+  { id: 'p2-screen-tx',  label: '画面遷移図',                    shape: 'round-octagon',     color: { background: '#8caaee', border: '#7c9ae6' }, font: { color: '#1a1a2e', size: 18 }, size: 33 },
+  { id: 'p2-db',         label: 'データベース\n設計',            shape: 'round-octagon',     color: { background: '#8caaee', border: '#7c9ae6' }, font: { color: '#1a1a2e', size: 18 }, size: 33 },
+  { id: 'p2-api',        label: 'API設計',                       shape: 'round-octagon',     color: { background: '#8caaee', border: '#7c9ae6' }, font: { color: '#1a1a2e', size: 18 }, size: 33 },
+  { id: 'p2-infra',      label: 'インフラ設計',                  shape: 'round-octagon', color: { background: '#8caaee', border: '#7c9ae6' }, font: { color: '#1a1a2e', size: 18 }, size: 33 },
+  { id: 'p2-sec',        label: 'セキュリティ\n設計',            shape: 'round-octagon',     color: { background: '#8caaee', border: '#7c9ae6' }, font: { color: '#1a1a2e', size: 18 }, size: 33 },
+  { id: 'p2-review',     label: '設計レビュー',                  shape: 'round-octagon',     color: { background: '#8caaee', border: '#7c9ae6' }, font: { color: '#1a1a2e', size: 18 }, size: 33 },
+  { id: 'p2-rev-fb',     label: '設計修正',                      shape: 'round-octagon',     color: { background: '#8caaee', border: '#7c9ae6' }, font: { color: '#1a1a2e', size: 18 }, size: 33 },
 
   // ANDゲート: 設計完了
-  { id: 'g-design-done', label: '設計完了！\n▸ 画面/DB/API/\nインフラ/セキュリティ', shape: 'hexagon', color: { background: '#fff', border: '#40a02b' }, borderWidth: 3, font: { color: '#196c21', size: 10 }, size: 30 },
+  { id: 'g-design-done', label: '設計完了！\n▸ 画面/DB/API/\nインフラ/セキュリティ', shape: 'round-octagon', color: { background: '#fff', border: '#40a02b' }, borderWidth: 3, font: { color:'#1a1a2e', size: 15 }, size: 45 },
 
   // ========== フェーズ3: フロントエンド開発 (水色系) ==========
-  { id: 'p3-fe-env',     label: '開発環境\n構築',               shape: 'roundedRect', color: { background: '#74c7ec', border: '#5bb9e3' }, font: { color: '#222', size: 12 }, size: 22 },
-  { id: 'p3-fe-comp',    label: 'コンポーネント\n設計',          shape: 'hexagon',     color: { background: '#74c7ec', border: '#5bb9e3' }, font: { color: '#222', size: 12 }, size: 22 },
-  { id: 'p3-fe-router',  label: 'ルーティング\n設定',            shape: 'ellipse',     color: { background: '#74c7ec', border: '#5bb9e3' }, font: { color: '#222', size: 12 }, size: 22 },
-  { id: 'p3-fe-state',   label: '状態管理設計',                  shape: 'diamond',     color: { background: '#74c7ec', border: '#5bb9e3' }, font: { color: '#222', size: 12 }, size: 22 },
-  { id: 'p3-fe-auth',    label: '認証画面\n実装',                shape: 'ellipse',     color: { background: '#74c7ec', border: '#5bb9e3' }, font: { color: '#222', size: 12 }, size: 22 },
-  { id: 'p3-fe-dash',    label: 'ダッシュボード\n実装',          shape: 'ellipse',     color: { background: '#74c7ec', border: '#5bb9e3' }, font: { color: '#222', size: 12 }, size: 22 },
-  { id: 'p3-fe-list',    label: '一覧画面実装',                  shape: 'ellipse',     color: { background: '#74c7ec', border: '#5bb9e3' }, font: { color: '#222', size: 12 }, size: 22 },
-  { id: 'p3-fe-detail',  label: '詳細画面実装',                  shape: 'ellipse',     color: { background: '#74c7ec', border: '#5bb9e3' }, font: { color: '#222', size: 12 }, size: 22 },
-  { id: 'p3-fe-form',    label: '入力フォーム\n実装',            shape: 'ellipse',     color: { background: '#74c7ec', border: '#5bb9e3' }, font: { color: '#222', size: 12 }, size: 22 },
-  { id: 'p3-fe-admin',   label: '管理画面実装',                  shape: 'roundedRect', color: { background: '#74c7ec', border: '#5bb9e3' }, font: { color: '#222', size: 12 }, size: 22 },
-  { id: 'p3-fe-api-conn',label: 'API接続\n処理実装',            shape: 'ellipse',     color: { background: '#74c7ec', border: '#5bb9e3' }, font: { color: '#222', size: 12 }, size: 22 },
-  { id: 'p3-fe-test',    label: 'フロント\nテスト記述',         shape: 'diamond',     color: { background: '#74c7ec', border: '#5bb9e3' }, font: { color: '#222', size: 12 }, size: 22 },
-  { id: 'p3-fe-rwd',     label: 'レスポンシブ\n対応',            shape: 'diamond',     color: { background: '#74c7ec', border: '#5bb9e3' }, font: { color: '#222', size: 12 }, size: 22 },
-  { id: 'p3-fe-a11y',    label: 'アクセシビリ\nティ対応',        shape: 'diamond',     color: { background: '#74c7ec', border: '#5bb9e3' }, font: { color: '#222', size: 12 }, size: 22 },
+  { id: 'p3-fe-env',     label: '開発環境\n構築',               shape: 'round-octagon', color: { background: '#74c7ec', border: '#5bb9e3' }, font: { color: '#1a1a2e', size: 18 }, size: 33 },
+  { id: 'p3-fe-comp',    label: 'コンポーネント\n設計',          shape: 'round-octagon',     color: { background: '#74c7ec', border: '#5bb9e3' }, font: { color: '#1a1a2e', size: 18 }, size: 33 },
+  { id: 'p3-fe-router',  label: 'ルーティング\n設定',            shape: 'round-octagon',     color: { background: '#74c7ec', border: '#5bb9e3' }, font: { color: '#1a1a2e', size: 18 }, size: 33 },
+  { id: 'p3-fe-state',   label: '状態管理設計',                  shape: 'round-octagon',     color: { background: '#74c7ec', border: '#5bb9e3' }, font: { color: '#1a1a2e', size: 18 }, size: 33 },
+  { id: 'p3-fe-auth',    label: '認証画面\n実装',                shape: 'round-octagon',     color: { background: '#74c7ec', border: '#5bb9e3' }, font: { color: '#1a1a2e', size: 18 }, size: 33 },
+  { id: 'p3-fe-dash',    label: 'ダッシュボード\n実装',          shape: 'round-octagon',     color: { background: '#74c7ec', border: '#5bb9e3' }, font: { color: '#1a1a2e', size: 18 }, size: 33 },
+  { id: 'p3-fe-list',    label: '一覧画面実装',                  shape: 'round-octagon',     color: { background: '#74c7ec', border: '#5bb9e3' }, font: { color: '#1a1a2e', size: 18 }, size: 33 },
+  { id: 'p3-fe-detail',  label: '詳細画面実装',                  shape: 'round-octagon',     color: { background: '#74c7ec', border: '#5bb9e3' }, font: { color: '#1a1a2e', size: 18 }, size: 33 },
+  { id: 'p3-fe-form',    label: '入力フォーム\n実装',            shape: 'round-octagon',     color: { background: '#74c7ec', border: '#5bb9e3' }, font: { color: '#1a1a2e', size: 18 }, size: 33 },
+  { id: 'p3-fe-admin',   label: '管理画面実装',                  shape: 'round-octagon', color: { background: '#74c7ec', border: '#5bb9e3' }, font: { color: '#1a1a2e', size: 18 }, size: 33 },
+  { id: 'p3-fe-api-conn',label: 'API接続\n処理実装',            shape: 'round-octagon',     color: { background: '#74c7ec', border: '#5bb9e3' }, font: { color: '#1a1a2e', size: 18 }, size: 33 },
+  { id: 'p3-fe-test',    label: 'フロント\nテスト記述',         shape: 'round-octagon',     color: { background: '#74c7ec', border: '#5bb9e3' }, font: { color: '#1a1a2e', size: 18 }, size: 33 },
+  { id: 'p3-fe-rwd',     label: 'レスポンシブ\n対応',            shape: 'round-octagon',     color: { background: '#74c7ec', border: '#5bb9e3' }, font: { color: '#1a1a2e', size: 18 }, size: 33 },
+  { id: 'p3-fe-a11y',    label: 'アクセシビリ\nティ対応',        shape: 'round-octagon',     color: { background: '#74c7ec', border: '#5bb9e3' }, font: { color: '#1a1a2e', size: 18 }, size: 33 },
 
   // ANDゲート: フロント完了
-  { id: 'g-fe-done',     label: 'FE開発完了！\n▸ 全画面実装\n▸ API接続/テスト\n▸ RWD/a11y対応', shape: 'hexagon', color: { background: '#fff', border: '#40a02b' }, borderWidth: 3, font: { color: '#196c21', size: 10 }, size: 30 },
+  { id: 'g-fe-done',     label: 'FE開発完了！\n▸ 全画面実装\n▸ API接続/テスト\n▸ RWD/a11y対応', shape: 'round-octagon', color: { background: '#fff', border: '#40a02b' }, borderWidth: 3, font: { color:'#1a1a2e', size: 15 }, size: 45 },
 
   // ========== フェーズ4: バックエンド開発 (水色系) ==========
-  { id: 'p4-be-env',     label: '開発環境\n構築',               shape: 'roundedRect', color: { background: '#74c7ec', border: '#5bb9e3' }, font: { color: '#222', size: 12 }, size: 22 },
-  { id: 'p4-be-model',   label: 'モデル設計',                    shape: 'hexagon',     color: { background: '#74c7ec', border: '#5bb9e3' }, font: { color: '#222', size: 12 }, size: 22 },
-  { id: 'p4-be-migration',label: 'マイグレーション\n設計',       shape: 'diamond',     color: { background: '#74c7ec', border: '#5bb9e3' }, font: { color: '#222', size: 12 }, size: 22 },
-  { id: 'p4-be-auth-api',label: '認証API実装',                   shape: 'ellipse',     color: { background: '#74c7ec', border: '#5bb9e3' }, font: { color: '#222', size: 12 }, size: 22 },
-  { id: 'p4-be-user-api',label: 'ユーザーAPI\n実装',            shape: 'ellipse',     color: { background: '#74c7ec', border: '#5bb9e3' }, font: { color: '#222', size: 12 }, size: 22 },
-  { id: 'p4-be-data-api',label: 'データAPI実装',                 shape: 'ellipse',     color: { background: '#74c7ec', border: '#5bb9e3' }, font: { color: '#222', size: 12 }, size: 22 },
-  { id: 'p4-be-payment', label: '決済機能実装',                  shape: 'roundedRect', color: { background: '#74c7ec', border: '#5bb9e3' }, font: { color: '#222', size: 12 }, size: 22 },
-  { id: 'p4-be-file',    label: 'ファイル\nアップロード',        shape: 'ellipse',     color: { background: '#74c7ec', border: '#5bb9e3' }, font: { color: '#222', size: 12 }, size: 22 },
-  { id: 'p4-be-notify',  label: '通知機能実装',                  shape: 'ellipse',     color: { background: '#74c7ec', border: '#5bb9e3' }, font: { color: '#222', size: 12 }, size: 22 },
-  { id: 'p4-be-batch',   label: 'バッチ処理\n実装',              shape: 'roundedRect', color: { background: '#74c7ec', border: '#5bb9e3' }, font: { color: '#222', size: 12 }, size: 22 },
-  { id: 'p4-be-search',  label: '検索機能実装',                  shape: 'ellipse',     color: { background: '#74c7ec', border: '#5bb9e3' }, font: { color: '#222', size: 12 }, size: 22 },
-  { id: 'p4-be-cache',   label: 'キャッシュ戦略\n実装',          shape: 'diamond',     color: { background: '#74c7ec', border: '#5bb9e3' }, font: { color: '#222', size: 12 }, size: 22 },
-  { id: 'p4-be-api-doc', label: 'APIドキュメント\n生成',         shape: 'roundedRect', color: { background: '#74c7ec', border: '#5bb9e3' }, font: { color: '#222', size: 12 }, size: 22 },
+  { id: 'p4-be-env',     label: '開発環境\n構築',               shape: 'round-octagon', color: { background: '#74c7ec', border: '#5bb9e3' }, font: { color: '#1a1a2e', size: 18 }, size: 33 },
+  { id: 'p4-be-model',   label: 'モデル設計',                    shape: 'round-octagon',     color: { background: '#74c7ec', border: '#5bb9e3' }, font: { color: '#1a1a2e', size: 18 }, size: 33 },
+  { id: 'p4-be-migration',label: 'マイグレーション\n設計',       shape: 'round-octagon',     color: { background: '#74c7ec', border: '#5bb9e3' }, font: { color: '#1a1a2e', size: 18 }, size: 33 },
+  { id: 'p4-be-auth-api',label: '認証API実装',                   shape: 'round-octagon',     color: { background: '#74c7ec', border: '#5bb9e3' }, font: { color: '#1a1a2e', size: 18 }, size: 33 },
+  { id: 'p4-be-user-api',label: 'ユーザーAPI\n実装',            shape: 'round-octagon',     color: { background: '#74c7ec', border: '#5bb9e3' }, font: { color: '#1a1a2e', size: 18 }, size: 33 },
+  { id: 'p4-be-data-api',label: 'データAPI実装',                 shape: 'round-octagon',     color: { background: '#74c7ec', border: '#5bb9e3' }, font: { color: '#1a1a2e', size: 18 }, size: 33 },
+  { id: 'p4-be-payment', label: '決済機能実装',                  shape: 'round-octagon', color: { background: '#74c7ec', border: '#5bb9e3' }, font: { color: '#1a1a2e', size: 18 }, size: 33 },
+  { id: 'p4-be-file',    label: 'ファイル\nアップロード',        shape: 'round-octagon',     color: { background: '#74c7ec', border: '#5bb9e3' }, font: { color: '#1a1a2e', size: 18 }, size: 33 },
+  { id: 'p4-be-notify',  label: '通知機能実装',                  shape: 'round-octagon',     color: { background: '#74c7ec', border: '#5bb9e3' }, font: { color: '#1a1a2e', size: 18 }, size: 33 },
+  { id: 'p4-be-batch',   label: 'バッチ処理\n実装',              shape: 'round-octagon', color: { background: '#74c7ec', border: '#5bb9e3' }, font: { color: '#1a1a2e', size: 18 }, size: 33 },
+  { id: 'p4-be-search',  label: '検索機能実装',                  shape: 'round-octagon',     color: { background: '#74c7ec', border: '#5bb9e3' }, font: { color: '#1a1a2e', size: 18 }, size: 33 },
+  { id: 'p4-be-cache',   label: 'キャッシュ戦略\n実装',          shape: 'round-octagon',     color: { background: '#74c7ec', border: '#5bb9e3' }, font: { color: '#1a1a2e', size: 18 }, size: 33 },
+  { id: 'p4-be-api-doc', label: 'APIドキュメント\n生成',         shape: 'round-octagon', color: { background: '#74c7ec', border: '#5bb9e3' }, font: { color: '#1a1a2e', size: 18 }, size: 33 },
 
   // ANDゲート: バックエンド完了
-  { id: 'g-be-done',     label: 'BE開発完了！\n▸ API全機能\n▸ 決済/通知/検索\n▸ ドキュメント', shape: 'hexagon', color: { background: '#fff', border: '#40a02b' }, borderWidth: 3, font: { color: '#196c21', size: 10 }, size: 30 },
+  { id: 'g-be-done',     label: 'BE開発完了！\n▸ API全機能\n▸ 決済/通知/検索\n▸ ドキュメント', shape: 'round-octagon', color: { background: '#fff', border: '#40a02b' }, borderWidth: 3, font: { color:'#1a1a2e', size: 15 }, size: 45 },
 
   // ========== フェーズ5: インフラ構築 (橙系) ==========
-  { id: 'p5-cicd',       label: 'CI/CD構築',                    shape: 'roundedRect', color: { background: '#fe640b', border: '#e65a0a' }, font: { color: '#fff', size: 12 }, size: 22 },
-  { id: 'p5-staging',    label: 'ステージング\n環境構築',        shape: 'roundedRect', color: { background: '#fe640b', border: '#e65a0a' }, font: { color: '#fff', size: 12 }, size: 22 },
-  { id: 'p5-prod-env',   label: '本番環境\n構築',               shape: 'roundedRect', color: { background: '#fe640b', border: '#e65a0a' }, font: { color: '#fff', size: 12 }, size: 22 },
-  { id: 'p5-domain',     label: 'ドメイン・\nSSL設定',           shape: 'ellipse',     color: { background: '#fe640b', border: '#e65a0a' }, font: { color: '#fff', size: 12 }, size: 22 },
-  { id: 'p5-secret',     label: 'シークレット\n管理',            shape: 'diamond',     color: { background: '#fe640b', border: '#e65a0a' }, font: { color: '#fff', size: 12 }, size: 22 },
-  { id: 'p5-monitor',    label: '監視設定',                      shape: 'diamond',     color: { background: '#fe640b', border: '#e65a0a' }, font: { color: '#fff', size: 12 }, size: 22 },
-  { id: 'p5-log',        label: 'ログ基盤\n構築',               shape: 'ellipse',     color: { background: '#fe640b', border: '#e65a0a' }, font: { color: '#fff', size: 12 }, size: 22 },
-  { id: 'p5-backup',     label: 'バックアップ\n設定',            shape: 'diamond',     color: { background: '#fe640b', border: '#e65a0a' }, font: { color: '#fff', size: 12 }, size: 22 },
-  { id: 'p5-cdn',        label: 'CDN設定',                      shape: 'ellipse',     color: { background: '#fe640b', border: '#e65a0a' }, font: { color: '#fff', size: 12 }, size: 22 },
+  { id: 'p5-cicd',       label: 'CI/CD構築',                    shape: 'round-octagon', color: { background: '#fe640b', border: '#e65a0a' }, font: { color: '#1a1a2e', size: 18 }, size: 33 },
+  { id: 'p5-staging',    label: 'ステージング\n環境構築',        shape: 'round-octagon', color: { background: '#fe640b', border: '#e65a0a' }, font: { color: '#1a1a2e', size: 18 }, size: 33 },
+  { id: 'p5-prod-env',   label: '本番環境\n構築',               shape: 'round-octagon', color: { background: '#fe640b', border: '#e65a0a' }, font: { color: '#1a1a2e', size: 18 }, size: 33 },
+  { id: 'p5-domain',     label: 'ドメイン・\nSSL設定',           shape: 'round-octagon',     color: { background: '#fe640b', border: '#e65a0a' }, font: { color: '#1a1a2e', size: 18 }, size: 33 },
+  { id: 'p5-secret',     label: 'シークレット\n管理',            shape: 'round-octagon',     color: { background: '#fe640b', border: '#e65a0a' }, font: { color: '#1a1a2e', size: 18 }, size: 33 },
+  { id: 'p5-monitor',    label: '監視設定',                      shape: 'round-octagon',     color: { background: '#fe640b', border: '#e65a0a' }, font: { color: '#1a1a2e', size: 18 }, size: 33 },
+  { id: 'p5-log',        label: 'ログ基盤\n構築',               shape: 'round-octagon',     color: { background: '#fe640b', border: '#e65a0a' }, font: { color: '#1a1a2e', size: 18 }, size: 33 },
+  { id: 'p5-backup',     label: 'バックアップ\n設定',            shape: 'round-octagon',     color: { background: '#fe640b', border: '#e65a0a' }, font: { color: '#1a1a2e', size: 18 }, size: 33 },
+  { id: 'p5-cdn',        label: 'CDN設定',                      shape: 'round-octagon',     color: { background: '#fe640b', border: '#e65a0a' }, font: { color: '#1a1a2e', size: 18 }, size: 33 },
 
   // ANDゲート: インフラ完了
-  { id: 'g-infra-done',  label: 'インフラ完了！\n▸ 本番/ステージング\n▸ CI/CD/監視\n▸ 秘密情報管理', shape: 'hexagon', color: { background: '#fff', border: '#40a02b' }, borderWidth: 3, font: { color: '#196c21', size: 10 }, size: 30 },
+  { id: 'g-infra-done',  label: 'インフラ完了！\n▸ 本番/ステージング\n▸ CI/CD/監視\n▸ 秘密情報管理', shape: 'round-octagon', color: { background: '#fff', border: '#40a02b' }, borderWidth: 3, font: { color:'#1a1a2e', size: 15 }, size: 45 },
 
   // ========== フェーズ6: テスト (緑系) ==========
-  { id: 'p6-unit-fe',    label: '単体テスト\n(フロント)',       shape: 'ellipse',     color: { background: '#a6e3a1', border: '#85d687' }, font: { color: '#333', size: 12 }, size: 22 },
-  { id: 'p6-unit-be',    label: '単体テスト\n(バックエンド)',    shape: 'ellipse',     color: { background: '#a6e3a1', border: '#85d687' }, font: { color: '#333', size: 12 }, size: 22 },
-  { id: 'p6-integ',      label: '結合テスト',                    shape: 'ellipse',     color: { background: '#a6e3a1', border: '#85d687' }, font: { color: '#333', size: 12 }, size: 22 },
-  { id: 'p6-e2e-user',   label: 'E2Eテスト\n(ユーザーフロー)',   shape: 'diamond',     color: { background: '#a6e3a1', border: '#85d687' }, font: { color: '#333', size: 12 }, size: 22 },
-  { id: 'p6-e2e-admin',  label: 'E2Eテスト\n(管理フロー)',       shape: 'diamond',     color: { background: '#a6e3a1', border: '#85d687' }, font: { color: '#333', size: 12 }, size: 22 },
-  { id: 'p6-sec-test',   label: 'セキュリティ\nテスト',          shape: 'hexagon',     color: { background: '#a6e3a1', border: '#85d687' }, font: { color: '#333', size: 12 }, size: 22 },
-  { id: 'p6-load',       label: '負荷テスト',                    shape: 'hexagon',     color: { background: '#a6e3a1', border: '#85d687' }, font: { color: '#333', size: 12 }, size: 22 },
-  { id: 'p6-cross',      label: 'クロスブラウザ\nテスト',        shape: 'diamond',     color: { background: '#a6e3a1', border: '#85d687' }, font: { color: '#333', size: 12 }, size: 22 },
-  { id: 'p6-regression', label: '回帰テスト',                    shape: 'ellipse',     color: { background: '#a6e3a1', border: '#85d687' }, font: { color: '#333', size: 12 }, size: 22 },
-  { id: 'p6-accept',     label: '受け入れ\nテスト',              shape: 'roundedRect', color: { background: '#a6e3a1', border: '#85d687' }, font: { color: '#333', size: 12 }, size: 22 },
-  { id: 'p6-ut',         label: 'ユーザーテスト',                shape: 'roundedRect', color: { background: '#a6e3a1', border: '#85d687' }, font: { color: '#333', size: 12 }, size: 22 },
-  { id: 'p6-bugfix',     label: 'バグ修正ループ',                shape: 'ellipse',     color: { background: '#a6e3a1', border: '#85d687' }, font: { color: '#333', size: 12 }, size: 22 },
+  { id: 'p6-unit-fe',    label: '単体テスト\n(フロント)',       shape: 'round-octagon',     color: { background: '#a6e3a1', border: '#85d687' }, font: { color: '#1a1a2e', size: 18 }, size: 33 },
+  { id: 'p6-unit-be',    label: '単体テスト\n(バックエンド)',    shape: 'round-octagon',     color: { background: '#a6e3a1', border: '#85d687' }, font: { color: '#1a1a2e', size: 18 }, size: 33 },
+  { id: 'p6-integ',      label: '結合テスト',                    shape: 'round-octagon',     color: { background: '#a6e3a1', border: '#85d687' }, font: { color: '#1a1a2e', size: 18 }, size: 33 },
+  { id: 'p6-e2e-user',   label: 'E2Eテスト\n(ユーザーフロー)',   shape: 'round-octagon',     color: { background: '#a6e3a1', border: '#85d687' }, font: { color: '#1a1a2e', size: 18 }, size: 33 },
+  { id: 'p6-e2e-admin',  label: 'E2Eテスト\n(管理フロー)',       shape: 'round-octagon',     color: { background: '#a6e3a1', border: '#85d687' }, font: { color: '#1a1a2e', size: 18 }, size: 33 },
+  { id: 'p6-sec-test',   label: 'セキュリティ\nテスト',          shape: 'round-octagon',     color: { background: '#a6e3a1', border: '#85d687' }, font: { color: '#1a1a2e', size: 18 }, size: 33 },
+  { id: 'p6-load',       label: '負荷テスト',                    shape: 'round-octagon',     color: { background: '#a6e3a1', border: '#85d687' }, font: { color: '#1a1a2e', size: 18 }, size: 33 },
+  { id: 'p6-cross',      label: 'クロスブラウザ\nテスト',        shape: 'round-octagon',     color: { background: '#a6e3a1', border: '#85d687' }, font: { color: '#1a1a2e', size: 18 }, size: 33 },
+  { id: 'p6-regression', label: '回帰テスト',                    shape: 'round-octagon',     color: { background: '#a6e3a1', border: '#85d687' }, font: { color: '#1a1a2e', size: 18 }, size: 33 },
+  { id: 'p6-accept',     label: '受け入れ\nテスト',              shape: 'round-octagon', color: { background: '#a6e3a1', border: '#85d687' }, font: { color: '#1a1a2e', size: 18 }, size: 33 },
+  { id: 'p6-ut',         label: 'ユーザーテスト',                shape: 'round-octagon', color: { background: '#a6e3a1', border: '#85d687' }, font: { color: '#1a1a2e', size: 18 }, size: 33 },
+  { id: 'p6-bugfix',     label: 'バグ修正ループ',                shape: 'round-octagon',     color: { background: '#a6e3a1', border: '#85d687' }, font: { color: '#1a1a2e', size: 18 }, size: 33 },
 
   // ANDゲート: テスト完了
-  { id: 'g-test-done',   label: 'テスト完了！\n▸ 単体/結合/E2E\n▸ セキュリティ/負荷\n▸ UT/回帰完了', shape: 'hexagon', color: { background: '#fff', border: '#40a02b' }, borderWidth: 3, font: { color: '#196c21', size: 10 }, size: 30 },
+  { id: 'g-test-done',   label: 'テスト完了！\n▸ 単体/結合/E2E\n▸ セキュリティ/負荷\n▸ UT/回帰完了', shape: 'round-octagon', color: { background: '#fff', border: '#40a02b' }, borderWidth: 3, font: { color:'#1a1a2e', size: 15 }, size: 45 },
 
   // ========== リリース (黄系) ==========
-  { id: 'p7-final',      label: '最終チェックリスト',            shape: 'hexagon',     color: { background: '#df8e1d', border: '#c8801a' }, font: { color: '#222', size: 12 }, size: 22 },
-  { id: 'p7-doc',        label: 'ドキュメント\n作成',            shape: 'roundedRect', color: { background: '#df8e1d', border: '#c8801a' }, font: { color: '#222', size: 12 }, size: 22 },
-  { id: 'p7-release-note',label: 'リリースノート\n作成',         shape: 'roundedRect', color: { background: '#df8e1d', border: '#c8801a' }, font: { color: '#222', size: 12 }, size: 22 },
-  { id: 'p7-rollback',   label: 'ロールバック\n計画策定',        shape: 'diamond',     color: { background: '#df8e1d', border: '#c8801a' }, font: { color: '#222', size: 12 }, size: 22 },
-  { id: 'p7-migration',  label: 'データ移行',                    shape: 'roundedRect', color: { background: '#df8e1d', border: '#c8801a' }, font: { color: '#222', size: 12 }, size: 22 },
-  { id: 'p7-release',    label: 'リリース！',                    shape: 'hexagon',     color: { background: '#df8e1d', border: '#c8801a' }, borderWidth: 3, font: { color: '#222', size: 13 }, size: 24 },
-  { id: 'p7-announce',   label: '公開アナウンス',                shape: 'ellipse',     color: { background: '#df8e1d', border: '#c8801a' }, font: { color: '#222', size: 12 }, size: 22 },
+  { id: 'p7-final',      label: '最終チェックリスト',            shape: 'round-octagon',     color: { background: '#df8e1d', border: '#c8801a' }, font: { color: '#1a1a2e', size: 18 }, size: 33 },
+  { id: 'p7-doc',        label: 'ドキュメント\n作成',            shape: 'round-octagon', color: { background: '#df8e1d', border: '#c8801a' }, font: { color: '#1a1a2e', size: 18 }, size: 33 },
+  { id: 'p7-release-note',label: 'リリースノート\n作成',         shape: 'round-octagon', color: { background: '#df8e1d', border: '#c8801a' }, font: { color: '#1a1a2e', size: 18 }, size: 33 },
+  { id: 'p7-rollback',   label: 'ロールバック\n計画策定',        shape: 'round-octagon',     color: { background: '#df8e1d', border: '#c8801a' }, font: { color: '#1a1a2e', size: 18 }, size: 33 },
+  { id: 'p7-migration',  label: 'データ移行',                    shape: 'round-octagon', color: { background: '#df8e1d', border: '#c8801a' }, font: { color: '#1a1a2e', size: 18 }, size: 33 },
+  { id: 'p7-release',    label: 'リリース！',                    shape: 'round-octagon',     color: { background: '#df8e1d', border: '#c8801a' }, borderWidth: 3, font: { color: '#1a1a2e', size: 20 }, size: 36 },
+  { id: 'p7-announce',   label: '公開アナウンス',                shape: 'round-octagon',     color: { background: '#df8e1d', border: '#c8801a' }, font: { color: '#1a1a2e', size: 18 }, size: 33 },
 
   // ========== 運用 (黄系) ==========
-  { id: 'p8-ops-start',  label: '運用作業\n開始',               shape: 'hexagon',     color: { background: '#df8e1d', border: '#c8801a' }, font: { color: '#222', size: 12 }, size: 22 },
-  { id: 'p8-incident',   label: 'インシデント\n対応計画',        shape: 'diamond',     color: { background: '#df8e1d', border: '#c8801a' }, font: { color: '#222', size: 12 }, size: 22 },
-  { id: 'p8-slo',        label: 'SLO/SLI\n設定',                 shape: 'diamond',     color: { background: '#df8e1d', border: '#c8801a' }, font: { color: '#222', size: 12 }, size: 22 },
-  { id: 'p8-monitor-op', label: '監視運用',                      shape: 'ellipse',     color: { background: '#df8e1d', border: '#c8801a' }, font: { color: '#222', size: 12 }, size: 22 },
-  { id: 'p8-perf',       label: 'パフォーマンス\n最適化',        shape: 'diamond',     color: { background: '#df8e1d', border: '#c8801a' }, font: { color: '#222', size: 12 }, size: 22 },
-  { id: 'p8-feedback',   label: 'ユーザー\nFB収集',             shape: 'diamond',     color: { background: '#df8e1d', border: '#c8801a' }, font: { color: '#222', size: 12 }, size: 22 },
-  { id: 'p8-update',     label: '機能追加\nサイクル',            shape: 'roundedRect', color: { background: '#df8e1d', border: '#c8801a' }, font: { color: '#222', size: 12 }, size: 22 },
-  { id: 'p8-scale',      label: 'スケーリング\n対応',            shape: 'roundedRect', color: { background: '#df8e1d', border: '#c8801a' }, font: { color: '#222', size: 12 }, size: 22 },
+  { id: 'p8-ops-start',  label: '運用作業\n開始',               shape: 'round-octagon',     color: { background: '#df8e1d', border: '#c8801a' }, font: { color: '#1a1a2e', size: 18 }, size: 33 },
+  { id: 'p8-incident',   label: 'インシデント\n対応計画',        shape: 'round-octagon',     color: { background: '#df8e1d', border: '#c8801a' }, font: { color: '#1a1a2e', size: 18 }, size: 33 },
+  { id: 'p8-slo',        label: 'SLO/SLI\n設定',                 shape: 'round-octagon',     color: { background: '#df8e1d', border: '#c8801a' }, font: { color: '#1a1a2e', size: 18 }, size: 33 },
+  { id: 'p8-monitor-op', label: '監視運用',                      shape: 'round-octagon',     color: { background: '#df8e1d', border: '#c8801a' }, font: { color: '#1a1a2e', size: 18 }, size: 33 },
+  { id: 'p8-perf',       label: 'パフォーマンス\n最適化',        shape: 'round-octagon',     color: { background: '#df8e1d', border: '#c8801a' }, font: { color: '#1a1a2e', size: 18 }, size: 33 },
+  { id: 'p8-feedback',   label: 'ユーザー\nFB収集',             shape: 'round-octagon',     color: { background: '#df8e1d', border: '#c8801a' }, font: { color: '#1a1a2e', size: 18 }, size: 33 },
+  { id: 'p8-update',     label: '機能追加\nサイクル',            shape: 'round-octagon', color: { background: '#df8e1d', border: '#c8801a' }, font: { color: '#1a1a2e', size: 18 }, size: 33 },
+  { id: 'p8-scale',      label: 'スケーリング\n対応',            shape: 'round-octagon', color: { background: '#df8e1d', border: '#c8801a' }, font: { color: '#1a1a2e', size: 18 }, size: 33 },
 
   // ========== トラブル (赤系) ==========
-  { id: 'tr-downtime',   label: 'サービス\nダウン',             shape: 'diamond',     color: { background: '#d20f39', border: '#bb0d33' }, font: { color: '#fff', size: 12 }, size: 22 },
-  { id: 'tr-leak',       label: '情報漏洩',                      shape: 'diamond',     color: { background: '#d20f39', border: '#bb0d33' }, font: { color: '#fff', size: 12 }, size: 22 },
-  { id: 'tr-perf-down',  label: 'パフォーマンス\n劣化',          shape: 'diamond',     color: { background: '#d20f39', border: '#bb0d33' }, font: { color: '#fff', size: 12 }, size: 22 },
-  { id: 'tr-bug-prod',   label: '本番バグ',                      shape: 'diamond',     color: { background: '#d20f39', border: '#bb0d33' }, font: { color: '#fff', size: 12 }, size: 22 },
-  { id: 'tr-report',     label: '障害報告',                      shape: 'roundedRect', color: { background: '#d20f39', border: '#bb0d33' }, font: { color: '#fff', size: 12 }, size: 22 },
-];
-
-// ===== エッジ定義 =====
-var edges = [
+  { id: 'tr-downtime',   label: 'サービス\nダウン',             shape: 'round-octagon',     color: { background: '#d20f39', border: '#bb0d33' }, font: { color: '#ffffff', size: 18 }, size: 33 },
+  { id: 'tr-leak',       label: '情報漏洩',                      shape: 'round-octagon',     color: { background: '#d20f39', border: '#bb0d33' }, font: { color: '#ffffff', size: 18 }, size: 33 },
+  { id: 'tr-perf-down',  label: 'パフォーマンス\n劣化',          shape: 'round-octagon',     color: { background: '#d20f39', border: '#bb0d33' }, font: { color: '#ffffff', size: 18 }, size: 33 },
+  { id: 'tr-bug-prod',   label: '本番バグ',                      shape: 'round-octagon',     color: { background: '#d20f39', border: '#bb0d33' }, font: { color: '#ffffff', size: 18 }, size: 33 },
+  { id: 'tr-report',     label: '障害報告',                      shape: 'round-octagon', color: { background: '#d20f39', border: '#bb0d33' }, font: { color: '#ffffff', size: 18 }, size: 33 },
+]);
+var edges=new vis.DataSet([
   // START → 企画
-  { from: 'start', to: 'p1-idea', color: '#1e66f5', width: 4, arrows: 'to' },
+  { from: 'start', to: 'p1-idea', color:'#6c6f85', width: 4, arrows: 'to' },
 
   // ===== 企画内部の流れ =====
-  { from: 'p1-idea',       to: 'p1-research',   color: '#1e66f5', width: 4, arrows: 'to' },
-  { from: 'p1-research',   to: 'p1-competitor', color: '#1e66f5', width: 4, arrows: 'to' },
-  { from: 'p1-competitor', to: 'p1-target',     color: '#1e66f5', width: 4, arrows: 'to' },
-  { from: 'p1-research',   to: 'p1-revenue',    color: '#6c6f85', width: 2, arrows: 'to', dashes: true },
-  { from: 'p1-target',     to: 'p1-plan',       color: '#1e66f5', width: 4, arrows: 'to' },
-  { from: 'p1-revenue',    to: 'p1-plan',       color: '#6c6f85', width: 2, arrows: 'to', dashes: true },
-  { from: 'p1-plan',       to: 'p1-budget',     color: '#1e66f5', width: 4, arrows: 'to' },
-  { from: 'p1-budget',     to: 'p1-risk',       color: '#6c6f85', width: 2, arrows: 'to', dashes: true },
+  { from: 'p1-idea',       to: 'p1-research',   color:'#6c6f85', width: 4, arrows: 'to' },
+  { from: 'p1-research',   to: 'p1-competitor', color:'#6c6f85', width: 4, arrows: 'to' },
+  { from: 'p1-competitor', to: 'p1-target',     color:'#6c6f85', width: 4, arrows: 'to' },
+  { from: 'p1-research',   to: 'p1-revenue',    color:'#6c6f85', width: 2, arrows: 'to', dashes: true },
+  { from: 'p1-target',     to: 'p1-plan',       color:'#6c6f85', width: 4, arrows: 'to' },
+  { from: 'p1-revenue',    to: 'p1-plan',       color:'#6c6f85', width: 2, arrows: 'to', dashes: true },
+  { from: 'p1-plan',       to: 'p1-budget',     color:'#6c6f85', width: 4, arrows: 'to' },
+  { from: 'p1-budget',     to: 'p1-risk',       color:'#6c6f85', width: 2, arrows: 'to', dashes: true },
   // 並行: 企画と並行して技術選定
-  { from: 'p1-idea',       to: 'p1-tech',       color: '#6c6f85', width: 2, arrows: 'to', dashes: true },
+  { from: 'p1-idea',       to: 'p1-tech',       color:'#6c6f85', width: 2, arrows: 'to', dashes: true },
   // 企画完了AND
-  { from: 'p1-plan',       to: 'g-plan-done',   color: '#1e66f5', width: 4, arrows: 'to' },
-  { from: 'p1-budget',     to: 'g-plan-done',   color: '#6c6f85', width: 2, arrows: 'to', dashes: true },
-  { from: 'p1-risk',       to: 'g-plan-done',   color: '#6c6f85', width: 2, arrows: 'to', dashes: true },
-  { from: 'p1-tech',       to: 'g-plan-done',   color: '#6c6f85', width: 2, arrows: 'to', dashes: true },
+  { from: 'p1-plan',       to: 'g-plan-done',   color:'#6c6f85', width: 4, arrows: 'to' },
+  { from: 'p1-budget',     to: 'g-plan-done',   color:'#6c6f85', width: 2, arrows: 'to', dashes: true },
+  { from: 'p1-risk',       to: 'g-plan-done',   color:'#6c6f85', width: 2, arrows: 'to', dashes: true },
+  { from: 'p1-tech',       to: 'g-plan-done',   color:'#6c6f85', width: 2, arrows: 'to', dashes: true },
   // 企画完了 → スケジュール → 要件定義
-  { from: 'g-plan-done',   to: 'p1-schedule',   color: '#1e66f5', width: 4, arrows: 'to' },
-  { from: 'p1-schedule',   to: 'p1-req',        color: '#1e66f5', width: 4, arrows: 'to' },
-  { from: 'p1-req',        to: 'p1-priority',   color: '#1e66f5', width: 4, arrows: 'to' },
-  { from: 'p1-priority',   to: 'g-req-done',    color: '#1e66f5', width: 4, arrows: 'to' },
+  { from: 'g-plan-done',   to: 'p1-schedule',   color:'#6c6f85', width: 4, arrows: 'to' },
+  { from: 'p1-schedule',   to: 'p1-req',        color:'#6c6f85', width: 4, arrows: 'to' },
+  { from: 'p1-req',        to: 'p1-priority',   color:'#6c6f85', width: 4, arrows: 'to' },
+  { from: 'p1-priority',   to: 'g-req-done',    color:'#6c6f85', width: 4, arrows: 'to' },
   // フィードバック: 要件が固まらない → 再調査
-  { from: 'p1-req',        to: 'p1-research',   color: '#d20f39', width: 2.5, arrows: 'to', dashes: true, title: '情報不足→再調査' },
+  { from: 'p1-req',        to: 'p1-research',   color:'#6c6f85', width: 2.5, arrows: 'to', dashes: true, title: '情報不足→再調査' },
 
   // ===== 設計フェーズ =====
-  { from: 'g-req-done',    to: 'p2-sitemap',    color: '#1e66f5', width: 4, arrows: 'to' },
+  { from: 'g-req-done',    to: 'p2-sitemap',    color:'#6c6f85', width: 4, arrows: 'to' },
   // 並行: 技術設計
-  { from: 'g-req-done',    to: 'p2-db',         color: '#6c6f85', width: 2, arrows: 'to', dashes: true },
-  { from: 'g-req-done',    to: 'p2-infra',      color: '#6c6f85', width: 2, arrows: 'to', dashes: true },
+  { from: 'g-req-done',    to: 'p2-db',         color:'#6c6f85', width: 2, arrows: 'to', dashes: true },
+  { from: 'g-req-done',    to: 'p2-infra',      color:'#6c6f85', width: 2, arrows: 'to', dashes: true },
   // UI系: サイトマップ→ワイヤー→画面設計→UI→プロト→レビュー
-  { from: 'p2-sitemap',    to: 'p2-wireframe',  color: '#1e66f5', width: 4, arrows: 'to' },
-  { from: 'p2-wireframe',  to: 'p2-mock',       color: '#1e66f5', width: 4, arrows: 'to' },
-  { from: 'p2-mock',       to: 'p2-screen-tx',  color: '#1e66f5', width: 4, arrows: 'to' },
-  { from: 'p2-screen-tx',  to: 'p2-ui',         color: '#1e66f5', width: 4, arrows: 'to' },
-  { from: 'p2-ui',         to: 'p2-proto',      color: '#1e66f5', width: 4, arrows: 'to' },
-  { from: 'p2-proto',      to: 'p2-preview',    color: '#1e66f5', width: 4, arrows: 'to' },
+  { from: 'p2-sitemap',    to: 'p2-wireframe',  color:'#6c6f85', width: 4, arrows: 'to' },
+  { from: 'p2-wireframe',  to: 'p2-mock',       color:'#6c6f85', width: 4, arrows: 'to' },
+  { from: 'p2-mock',       to: 'p2-screen-tx',  color:'#6c6f85', width: 4, arrows: 'to' },
+  { from: 'p2-screen-tx',  to: 'p2-ui',         color:'#6c6f85', width: 4, arrows: 'to' },
+  { from: 'p2-ui',         to: 'p2-proto',      color:'#6c6f85', width: 4, arrows: 'to' },
+  { from: 'p2-proto',      to: 'p2-preview',    color:'#6c6f85', width: 4, arrows: 'to' },
   // 技術系: DB→API, インフラ→セキュリティ
-  { from: 'p2-db',         to: 'p2-api',        color: '#1e66f5', width: 4, arrows: 'to' },
-  { from: 'p2-api',        to: 'p2-review',     color: '#1e66f5', width: 4, arrows: 'to' },
-  { from: 'p2-infra',      to: 'p2-sec',        color: '#1e66f5', width: 4, arrows: 'to' },
-  { from: 'p2-sec',        to: 'p2-review',     color: '#6c6f85', width: 2, arrows: 'to', dashes: true },
+  { from: 'p2-db',         to: 'p2-api',        color:'#6c6f85', width: 4, arrows: 'to' },
+  { from: 'p2-api',        to: 'p2-review',     color:'#6c6f85', width: 4, arrows: 'to' },
+  { from: 'p2-infra',      to: 'p2-sec',        color:'#6c6f85', width: 4, arrows: 'to' },
+  { from: 'p2-sec',        to: 'p2-review',     color:'#6c6f85', width: 2, arrows: 'to', dashes: true },
   // プロトレビュー → 設計レビュー
-  { from: 'p2-preview',    to: 'p2-review',     color: '#1e66f5', width: 4, arrows: 'to' },
+  { from: 'p2-preview',    to: 'p2-review',     color:'#6c6f85', width: 4, arrows: 'to' },
   // フィードバック: レビューNG → 修正 → 再レビュー
-  { from: 'p2-review',     to: 'p2-rev-fb',     color: '#d20f39', width: 2.5, arrows: 'to', dashes: true, title: 'NG→修正' },
-  { from: 'p2-rev-fb',     to: 'p2-review',     color: '#d20f39', width: 2.5, arrows: 'to', dashes: true, title: '再レビュー' },
-  { from: 'p2-review',     to: 'p2-ui',         color: '#d20f39', width: 2.5, arrows: 'to', dashes: true, title: 'UI修正' },
+  { from: 'p2-review',     to: 'p2-rev-fb',     color:'#6c6f85', width: 2.5, arrows: 'to', dashes: true, title: 'NG→修正' },
+  { from: 'p2-rev-fb',     to: 'p2-review',     color:'#6c6f85', width: 2.5, arrows: 'to', dashes: true, title: '再レビュー' },
+  { from: 'p2-review',     to: 'p2-ui',         color:'#6c6f85', width: 2.5, arrows: 'to', dashes: true, title: 'UI修正' },
   // 設計完了
-  { from: 'p2-review',     to: 'g-design-done', color: '#1e66f5', width: 4, arrows: 'to' },
+  { from: 'p2-review',     to: 'g-design-done', color:'#6c6f85', width: 4, arrows: 'to' },
 
   // ===== フロントエンド開発 =====
-  { from: 'g-design-done', to: 'p3-fe-env',     color: '#1e66f5', width: 4, arrows: 'to' },
-  { from: 'p3-fe-env',     to: 'p3-fe-comp',    color: '#1e66f5', width: 4, arrows: 'to' },
-  { from: 'p3-fe-comp',    to: 'p3-fe-router',  color: '#1e66f5', width: 4, arrows: 'to' },
-  { from: 'p3-fe-comp',    to: 'p3-fe-state',   color: '#6c6f85', width: 2, arrows: 'to', dashes: true },
+  { from: 'g-design-done', to: 'p3-fe-env',     color:'#6c6f85', width: 4, arrows: 'to' },
+  { from: 'p3-fe-env',     to: 'p3-fe-comp',    color:'#6c6f85', width: 4, arrows: 'to' },
+  { from: 'p3-fe-comp',    to: 'p3-fe-router',  color:'#6c6f85', width: 4, arrows: 'to' },
+  { from: 'p3-fe-comp',    to: 'p3-fe-state',   color:'#6c6f85', width: 2, arrows: 'to', dashes: true },
   // 各画面実装（並行）
-  { from: 'p3-fe-router',  to: 'p3-fe-auth',    color: '#1e66f5', width: 4, arrows: 'to' },
-  { from: 'p3-fe-router',  to: 'p3-fe-dash',    color: '#6c6f85', width: 2, arrows: 'to', dashes: true },
-  { from: 'p3-fe-router',  to: 'p3-fe-list',    color: '#6c6f85', width: 2, arrows: 'to', dashes: true },
-  { from: 'p3-fe-router',  to: 'p3-fe-detail',  color: '#6c6f85', width: 2, arrows: 'to', dashes: true },
-  { from: 'p3-fe-router',  to: 'p3-fe-form',    color: '#6c6f85', width: 2, arrows: 'to', dashes: true },
-  { from: 'p3-fe-router',  to: 'p3-fe-admin',   color: '#6c6f85', width: 2, arrows: 'to', dashes: true },
+  { from: 'p3-fe-router',  to: 'p3-fe-auth',    color:'#6c6f85', width: 4, arrows: 'to' },
+  { from: 'p3-fe-router',  to: 'p3-fe-dash',    color:'#6c6f85', width: 2, arrows: 'to', dashes: true },
+  { from: 'p3-fe-router',  to: 'p3-fe-list',    color:'#6c6f85', width: 2, arrows: 'to', dashes: true },
+  { from: 'p3-fe-router',  to: 'p3-fe-detail',  color:'#6c6f85', width: 2, arrows: 'to', dashes: true },
+  { from: 'p3-fe-router',  to: 'p3-fe-form',    color:'#6c6f85', width: 2, arrows: 'to', dashes: true },
+  { from: 'p3-fe-router',  to: 'p3-fe-admin',   color:'#6c6f85', width: 2, arrows: 'to', dashes: true },
   // 状態管理→認証画面
-  { from: 'p3-fe-state',   to: 'p3-fe-auth',    color: '#1e66f5', width: 4, arrows: 'to' },
+  { from: 'p3-fe-state',   to: 'p3-fe-auth',    color:'#6c6f85', width: 4, arrows: 'to' },
   // 画面実装→API接続→テスト→RWD→a11y
-  { from: 'p3-fe-auth',    to: 'p3-fe-api-conn', color: '#6c6f85', width: 2, arrows: 'to', dashes: true },
-  { from: 'p3-fe-dash',    to: 'p3-fe-api-conn', color: '#6c6f85', width: 2, arrows: 'to', dashes: true },
-  { from: 'p3-fe-list',    to: 'p3-fe-api-conn', color: '#6c6f85', width: 2, arrows: 'to', dashes: true },
-  { from: 'p3-fe-detail',  to: 'p3-fe-api-conn', color: '#6c6f85', width: 2, arrows: 'to', dashes: true },
-  { from: 'p3-fe-form',    to: 'p3-fe-api-conn', color: '#6c6f85', width: 2, arrows: 'to', dashes: true },
-  { from: 'p3-fe-admin',   to: 'p3-fe-api-conn', color: '#6c6f85', width: 2, arrows: 'to', dashes: true },
-  { from: 'p3-fe-api-conn',to: 'p3-fe-test',     color: '#1e66f5', width: 4, arrows: 'to' },
-  { from: 'p3-fe-test',    to: 'p3-fe-rwd',     color: '#1e66f5', width: 4, arrows: 'to' },
-  { from: 'p3-fe-rwd',     to: 'p3-fe-a11y',    color: '#1e66f5', width: 4, arrows: 'to' },
-  { from: 'p3-fe-a11y',    to: 'g-fe-done',     color: '#1e66f5', width: 4, arrows: 'to' },
+  { from: 'p3-fe-auth',    to: 'p3-fe-api-conn', color:'#6c6f85', width: 2, arrows: 'to', dashes: true },
+  { from: 'p3-fe-dash',    to: 'p3-fe-api-conn', color:'#6c6f85', width: 2, arrows: 'to', dashes: true },
+  { from: 'p3-fe-list',    to: 'p3-fe-api-conn', color:'#6c6f85', width: 2, arrows: 'to', dashes: true },
+  { from: 'p3-fe-detail',  to: 'p3-fe-api-conn', color:'#6c6f85', width: 2, arrows: 'to', dashes: true },
+  { from: 'p3-fe-form',    to: 'p3-fe-api-conn', color:'#6c6f85', width: 2, arrows: 'to', dashes: true },
+  { from: 'p3-fe-admin',   to: 'p3-fe-api-conn', color:'#6c6f85', width: 2, arrows: 'to', dashes: true },
+  { from: 'p3-fe-api-conn',to: 'p3-fe-test',     color:'#6c6f85', width: 4, arrows: 'to' },
+  { from: 'p3-fe-test',    to: 'p3-fe-rwd',     color:'#6c6f85', width: 4, arrows: 'to' },
+  { from: 'p3-fe-rwd',     to: 'p3-fe-a11y',    color:'#6c6f85', width: 4, arrows: 'to' },
+  { from: 'p3-fe-a11y',    to: 'g-fe-done',     color:'#6c6f85', width: 4, arrows: 'to' },
   // FB: レスポンシブで問題 → 画面修正
-  { from: 'p3-fe-rwd',     to: 'p3-fe-dash',    color: '#d20f39', width: 2.5, arrows: 'to', dashes: true, title: 'RWD調整' },
+  { from: 'p3-fe-rwd',     to: 'p3-fe-dash',    color:'#6c6f85', width: 2.5, arrows: 'to', dashes: true, title: 'RWD調整' },
 
   // ===== バックエンド開発 =====
-  { from: 'g-design-done', to: 'p4-be-env',     color: '#1e66f5', width: 4, arrows: 'to' },
-  { from: 'p4-be-env',     to: 'p4-be-model',   color: '#1e66f5', width: 4, arrows: 'to' },
-  { from: 'p4-be-model',   to: 'p4-be-migration',color: '#1e66f5', width: 4, arrows: 'to' },
-  { from: 'p4-be-migration',to: 'p4-be-auth-api',color: '#1e66f5', width: 4, arrows: 'to' },
+  { from: 'g-design-done', to: 'p4-be-env',     color:'#6c6f85', width: 4, arrows: 'to' },
+  { from: 'p4-be-env',     to: 'p4-be-model',   color:'#6c6f85', width: 4, arrows: 'to' },
+  { from: 'p4-be-model',   to: 'p4-be-migration',color:'#6c6f85', width: 4, arrows: 'to' },
+  { from: 'p4-be-migration',to: 'p4-be-auth-api',color:'#6c6f85', width: 4, arrows: 'to' },
   // 認証API→各API（並行）
-  { from: 'p4-be-auth-api', to: 'p4-be-user-api', color: '#6c6f85', width: 2, arrows: 'to', dashes: true },
-  { from: 'p4-be-auth-api', to: 'p4-be-data-api', color: '#6c6f85', width: 2, arrows: 'to', dashes: true },
-  { from: 'p4-be-auth-api', to: 'p4-be-payment',  color: '#6c6f85', width: 2, arrows: 'to', dashes: true },
-  { from: 'p4-be-auth-api', to: 'p4-be-file',     color: '#6c6f85', width: 2, arrows: 'to', dashes: true },
-  { from: 'p4-be-auth-api', to: 'p4-be-notify',   color: '#6c6f85', width: 2, arrows: 'to', dashes: true },
+  { from: 'p4-be-auth-api', to: 'p4-be-user-api', color:'#6c6f85', width: 2, arrows: 'to', dashes: true },
+  { from: 'p4-be-auth-api', to: 'p4-be-data-api', color:'#6c6f85', width: 2, arrows: 'to', dashes: true },
+  { from: 'p4-be-auth-api', to: 'p4-be-payment',  color:'#6c6f85', width: 2, arrows: 'to', dashes: true },
+  { from: 'p4-be-auth-api', to: 'p4-be-file',     color:'#6c6f85', width: 2, arrows: 'to', dashes: true },
+  { from: 'p4-be-auth-api', to: 'p4-be-notify',   color:'#6c6f85', width: 2, arrows: 'to', dashes: true },
   // 並行タスク
-  { from: 'p4-be-data-api', to: 'p4-be-search',   color: '#1e66f5', width: 4, arrows: 'to' },
-  { from: 'p4-be-data-api', to: 'p4-be-batch',    color: '#6c6f85', width: 2, arrows: 'to', dashes: true },
-  { from: 'p4-be-data-api', to: 'p4-be-cache',    color: '#6c6f85', width: 2, arrows: 'to', dashes: true },
-  { from: 'p4-be-data-api', to: 'p4-be-api-doc',  color: '#6c6f85', width: 2, arrows: 'to', dashes: true },
+  { from: 'p4-be-data-api', to: 'p4-be-search',   color:'#6c6f85', width: 4, arrows: 'to' },
+  { from: 'p4-be-data-api', to: 'p4-be-batch',    color:'#6c6f85', width: 2, arrows: 'to', dashes: true },
+  { from: 'p4-be-data-api', to: 'p4-be-cache',    color:'#6c6f85', width: 2, arrows: 'to', dashes: true },
+  { from: 'p4-be-data-api', to: 'p4-be-api-doc',  color:'#6c6f85', width: 2, arrows: 'to', dashes: true },
   // BE完了AND
-  { from: 'p4-be-user-api', to: 'g-be-done',    color: '#6c6f85', width: 2, arrows: 'to', dashes: true },
-  { from: 'p4-be-data-api', to: 'g-be-done',    color: '#6c6f85', width: 2, arrows: 'to', dashes: true },
-  { from: 'p4-be-payment',  to: 'g-be-done',    color: '#6c6f85', width: 2, arrows: 'to', dashes: true },
-  { from: 'p4-be-file',     to: 'g-be-done',    color: '#6c6f85', width: 2, arrows: 'to', dashes: true },
-  { from: 'p4-be-notify',   to: 'g-be-done',    color: '#6c6f85', width: 2, arrows: 'to', dashes: true },
-  { from: 'p4-be-search',   to: 'g-be-done',    color: '#6c6f85', width: 2, arrows: 'to', dashes: true },
-  { from: 'p4-be-batch',    to: 'g-be-done',    color: '#6c6f85', width: 2, arrows: 'to', dashes: true },
-  { from: 'p4-be-cache',    to: 'g-be-done',    color: '#6c6f85', width: 2, arrows: 'to', dashes: true },
-  { from: 'p4-be-api-doc',  to: 'g-be-done',    color: '#6c6f85', width: 2, arrows: 'to', dashes: true },
+  { from: 'p4-be-user-api', to: 'g-be-done',    color:'#6c6f85', width: 2, arrows: 'to', dashes: true },
+  { from: 'p4-be-data-api', to: 'g-be-done',    color:'#6c6f85', width: 2, arrows: 'to', dashes: true },
+  { from: 'p4-be-payment',  to: 'g-be-done',    color:'#6c6f85', width: 2, arrows: 'to', dashes: true },
+  { from: 'p4-be-file',     to: 'g-be-done',    color:'#6c6f85', width: 2, arrows: 'to', dashes: true },
+  { from: 'p4-be-notify',   to: 'g-be-done',    color:'#6c6f85', width: 2, arrows: 'to', dashes: true },
+  { from: 'p4-be-search',   to: 'g-be-done',    color:'#6c6f85', width: 2, arrows: 'to', dashes: true },
+  { from: 'p4-be-batch',    to: 'g-be-done',    color:'#6c6f85', width: 2, arrows: 'to', dashes: true },
+  { from: 'p4-be-cache',    to: 'g-be-done',    color:'#6c6f85', width: 2, arrows: 'to', dashes: true },
+  { from: 'p4-be-api-doc',  to: 'g-be-done',    color:'#6c6f85', width: 2, arrows: 'to', dashes: true },
 
   // ===== インフラ構築 =====
-  { from: 'g-design-done', to: 'p5-prod-env',   color: '#1e66f5', width: 4, arrows: 'to' },
-  { from: 'g-design-done', to: 'p5-cicd',       color: '#6c6f85', width: 2, arrows: 'to', dashes: true },
-  { from: 'g-design-done', to: 'p5-staging',    color: '#6c6f85', width: 2, arrows: 'to', dashes: true },
-  { from: 'p5-prod-env',   to: 'p5-domain',     color: '#1e66f5', width: 4, arrows: 'to' },
-  { from: 'p5-domain',     to: 'p5-secret',     color: '#1e66f5', width: 4, arrows: 'to' },
-  { from: 'p5-secret',     to: 'p5-cdn',        color: '#6c6f85', width: 2, arrows: 'to', dashes: true },
-  { from: 'p5-prod-env',   to: 'p5-monitor',    color: '#6c6f85', width: 2, arrows: 'to', dashes: true },
-  { from: 'p5-prod-env',   to: 'p5-log',        color: '#6c6f85', width: 2, arrows: 'to', dashes: true },
-  { from: 'p5-prod-env',   to: 'p5-backup',     color: '#6c6f85', width: 2, arrows: 'to', dashes: true },
+  { from: 'g-design-done', to: 'p5-prod-env',   color:'#6c6f85', width: 4, arrows: 'to' },
+  { from: 'g-design-done', to: 'p5-cicd',       color:'#6c6f85', width: 2, arrows: 'to', dashes: true },
+  { from: 'g-design-done', to: 'p5-staging',    color:'#6c6f85', width: 2, arrows: 'to', dashes: true },
+  { from: 'p5-prod-env',   to: 'p5-domain',     color:'#6c6f85', width: 4, arrows: 'to' },
+  { from: 'p5-domain',     to: 'p5-secret',     color:'#6c6f85', width: 4, arrows: 'to' },
+  { from: 'p5-secret',     to: 'p5-cdn',        color:'#6c6f85', width: 2, arrows: 'to', dashes: true },
+  { from: 'p5-prod-env',   to: 'p5-monitor',    color:'#6c6f85', width: 2, arrows: 'to', dashes: true },
+  { from: 'p5-prod-env',   to: 'p5-log',        color:'#6c6f85', width: 2, arrows: 'to', dashes: true },
+  { from: 'p5-prod-env',   to: 'p5-backup',     color:'#6c6f85', width: 2, arrows: 'to', dashes: true },
   // インフラ完了AND
-  { from: 'p5-cicd',       to: 'g-infra-done',  color: '#6c6f85', width: 2, arrows: 'to', dashes: true },
-  { from: 'p5-staging',    to: 'g-infra-done',  color: '#6c6f85', width: 2, arrows: 'to', dashes: true },
-  { from: 'p5-domain',     to: 'g-infra-done',  color: '#1e66f5', width: 4, arrows: 'to' },
-  { from: 'p5-cdn',        to: 'g-infra-done',  color: '#6c6f85', width: 2, arrows: 'to', dashes: true },
-  { from: 'p5-monitor',    to: 'g-infra-done',  color: '#6c6f85', width: 2, arrows: 'to', dashes: true },
-  { from: 'p5-log',        to: 'g-infra-done',  color: '#6c6f85', width: 2, arrows: 'to', dashes: true },
-  { from: 'p5-backup',     to: 'g-infra-done',  color: '#6c6f85', width: 2, arrows: 'to', dashes: true },
+  { from: 'p5-cicd',       to: 'g-infra-done',  color:'#6c6f85', width: 2, arrows: 'to', dashes: true },
+  { from: 'p5-staging',    to: 'g-infra-done',  color:'#6c6f85', width: 2, arrows: 'to', dashes: true },
+  { from: 'p5-domain',     to: 'g-infra-done',  color:'#6c6f85', width: 4, arrows: 'to' },
+  { from: 'p5-cdn',        to: 'g-infra-done',  color:'#6c6f85', width: 2, arrows: 'to', dashes: true },
+  { from: 'p5-monitor',    to: 'g-infra-done',  color:'#6c6f85', width: 2, arrows: 'to', dashes: true },
+  { from: 'p5-log',        to: 'g-infra-done',  color:'#6c6f85', width: 2, arrows: 'to', dashes: true },
+  { from: 'p5-backup',     to: 'g-infra-done',  color:'#6c6f85', width: 2, arrows: 'to', dashes: true },
 
   // ===== テスト =====
-  { from: 'g-fe-done',     to: 'p6-unit-fe',    color: '#1e66f5', width: 4, arrows: 'to' },
-  { from: 'g-be-done',     to: 'p6-unit-be',    color: '#1e66f5', width: 4, arrows: 'to' },
-  { from: 'g-infra-done',  to: 'p6-integ',      color: '#1e66f5', width: 4, arrows: 'to' },
+  { from: 'g-fe-done',     to: 'p6-unit-fe',    color:'#6c6f85', width: 4, arrows: 'to' },
+  { from: 'g-be-done',     to: 'p6-unit-be',    color:'#6c6f85', width: 4, arrows: 'to' },
+  { from: 'g-infra-done',  to: 'p6-integ',      color:'#6c6f85', width: 4, arrows: 'to' },
   // テスト内部
-  { from: 'p6-unit-fe',    to: 'p6-regression', color: '#6c6f85', width: 2, arrows: 'to', dashes: true },
-  { from: 'p6-unit-be',    to: 'p6-regression', color: '#6c6f85', width: 2, arrows: 'to', dashes: true },
-  { from: 'p6-unit-fe',    to: 'p6-e2e-user',   color: '#6c6f85', width: 2, arrows: 'to', dashes: true },
-  { from: 'p6-unit-be',    to: 'p6-e2e-admin',  color: '#6c6f85', width: 2, arrows: 'to', dashes: true },
-  { from: 'p6-regression', to: 'p6-integ',      color: '#1e66f5', width: 4, arrows: 'to' },
-  { from: 'p6-integ',      to: 'p6-e2e-user',   color: '#1e66f5', width: 4, arrows: 'to' },
-  { from: 'p6-integ',      to: 'p6-e2e-admin',  color: '#6c6f85', width: 2, arrows: 'to', dashes: true },
+  { from: 'p6-unit-fe',    to: 'p6-regression', color:'#6c6f85', width: 2, arrows: 'to', dashes: true },
+  { from: 'p6-unit-be',    to: 'p6-regression', color:'#6c6f85', width: 2, arrows: 'to', dashes: true },
+  { from: 'p6-unit-fe',    to: 'p6-e2e-user',   color:'#6c6f85', width: 2, arrows: 'to', dashes: true },
+  { from: 'p6-unit-be',    to: 'p6-e2e-admin',  color:'#6c6f85', width: 2, arrows: 'to', dashes: true },
+  { from: 'p6-regression', to: 'p6-integ',      color:'#6c6f85', width: 4, arrows: 'to' },
+  { from: 'p6-integ',      to: 'p6-e2e-user',   color:'#6c6f85', width: 4, arrows: 'to' },
+  { from: 'p6-integ',      to: 'p6-e2e-admin',  color:'#6c6f85', width: 2, arrows: 'to', dashes: true },
   // 並行テスト
-  { from: 'p6-integ',      to: 'p6-sec-test',   color: '#6c6f85', width: 2, arrows: 'to', dashes: true },
-  { from: 'p6-integ',      to: 'p6-load',       color: '#6c6f85', width: 2, arrows: 'to', dashes: true },
-  { from: 'p6-integ',      to: 'p6-cross',      color: '#6c6f85', width: 2, arrows: 'to', dashes: true },
-  { from: 'p6-e2e-user',   to: 'p6-accept',     color: '#6c6f85', width: 2, arrows: 'to', dashes: true },
-  { from: 'p6-e2e-admin',  to: 'p6-accept',     color: '#6c6f85', width: 2, arrows: 'to', dashes: true },
-  { from: 'p6-cross',      to: 'p6-ut',         color: '#6c6f85', width: 2, arrows: 'to', dashes: true },
-  { from: 'p6-accept',     to: 'p6-ut',         color: '#1e66f5', width: 4, arrows: 'to' },
+  { from: 'p6-integ',      to: 'p6-sec-test',   color:'#6c6f85', width: 2, arrows: 'to', dashes: true },
+  { from: 'p6-integ',      to: 'p6-load',       color:'#6c6f85', width: 2, arrows: 'to', dashes: true },
+  { from: 'p6-integ',      to: 'p6-cross',      color:'#6c6f85', width: 2, arrows: 'to', dashes: true },
+  { from: 'p6-e2e-user',   to: 'p6-accept',     color:'#6c6f85', width: 2, arrows: 'to', dashes: true },
+  { from: 'p6-e2e-admin',  to: 'p6-accept',     color:'#6c6f85', width: 2, arrows: 'to', dashes: true },
+  { from: 'p6-cross',      to: 'p6-ut',         color:'#6c6f85', width: 2, arrows: 'to', dashes: true },
+  { from: 'p6-accept',     to: 'p6-ut',         color:'#6c6f85', width: 4, arrows: 'to' },
   // バグ修正ループ
-  { from: 'p6-unit-fe',    to: 'p6-bugfix',     color: '#d20f39', width: 2.5, arrows: 'to', dashes: true, title: 'バグ' },
-  { from: 'p6-unit-be',    to: 'p6-bugfix',     color: '#d20f39', width: 2.5, arrows: 'to', dashes: true, title: 'バグ' },
-  { from: 'p6-e2e-user',   to: 'p6-bugfix',     color: '#d20f39', width: 2.5, arrows: 'to', dashes: true, title: '発見' },
-  { from: 'p6-ut',         to: 'p6-bugfix',     color: '#d20f39', width: 2.5, arrows: 'to', dashes: true, title: 'FB' },
-  { from: 'p6-bugfix',     to: 'p6-unit-fe',    color: '#d20f39', width: 2.5, arrows: 'to', dashes: true, title: '再テスト' },
-  { from: 'p6-bugfix',     to: 'p6-unit-be',    color: '#d20f39', width: 2.5, arrows: 'to', dashes: true, title: '再テスト' },
+  { from: 'p6-unit-fe',    to: 'p6-bugfix',     color:'#6c6f85', width: 2.5, arrows: 'to', dashes: true, title: 'バグ' },
+  { from: 'p6-unit-be',    to: 'p6-bugfix',     color:'#6c6f85', width: 2.5, arrows: 'to', dashes: true, title: 'バグ' },
+  { from: 'p6-e2e-user',   to: 'p6-bugfix',     color:'#6c6f85', width: 2.5, arrows: 'to', dashes: true, title: '発見' },
+  { from: 'p6-ut',         to: 'p6-bugfix',     color:'#6c6f85', width: 2.5, arrows: 'to', dashes: true, title: 'FB' },
+  { from: 'p6-bugfix',     to: 'p6-unit-fe',    color:'#6c6f85', width: 2.5, arrows: 'to', dashes: true, title: '再テスト' },
+  { from: 'p6-bugfix',     to: 'p6-unit-be',    color:'#6c6f85', width: 2.5, arrows: 'to', dashes: true, title: '再テスト' },
   // テスト完了AND
-  { from: 'p6-e2e-user',   to: 'g-test-done',   color: '#6c6f85', width: 2, arrows: 'to', dashes: true },
-  { from: 'p6-sec-test',   to: 'g-test-done',   color: '#6c6f85', width: 2, arrows: 'to', dashes: true },
-  { from: 'p6-load',       to: 'g-test-done',   color: '#6c6f85', width: 2, arrows: 'to', dashes: true },
-  { from: 'p6-ut',         to: 'g-test-done',   color: '#6c6f85', width: 2, arrows: 'to', dashes: true },
-  { from: 'p6-bugfix',     to: 'g-test-done',   color: '#6c6f85', width: 2, arrows: 'to', dashes: true },
+  { from: 'p6-e2e-user',   to: 'g-test-done',   color:'#6c6f85', width: 2, arrows: 'to', dashes: true },
+  { from: 'p6-sec-test',   to: 'g-test-done',   color:'#6c6f85', width: 2, arrows: 'to', dashes: true },
+  { from: 'p6-load',       to: 'g-test-done',   color:'#6c6f85', width: 2, arrows: 'to', dashes: true },
+  { from: 'p6-ut',         to: 'g-test-done',   color:'#6c6f85', width: 2, arrows: 'to', dashes: true },
+  { from: 'p6-bugfix',     to: 'g-test-done',   color:'#6c6f85', width: 2, arrows: 'to', dashes: true },
 
   // ===== リリース =====
-  { from: 'g-test-done',   to: 'p7-final',      color: '#1e66f5', width: 4, arrows: 'to' },
-  { from: 'p7-final',      to: 'p7-rollback',   color: '#1e66f5', width: 4, arrows: 'to' },
-  { from: 'p7-final',      to: 'p7-doc',        color: '#6c6f85', width: 2, arrows: 'to', dashes: true },
-  { from: 'p7-final',      to: 'p7-release-note',color: '#6c6f85', width: 2, arrows: 'to', dashes: true },
-  { from: 'p7-rollback',   to: 'p7-migration',  color: '#1e66f5', width: 4, arrows: 'to' },
-  { from: 'p7-migration',  to: 'p7-release',    color: '#1e66f5', width: 4, arrows: 'to' },
-  { from: 'p7-doc',        to: 'p7-release',    color: '#6c6f85', width: 2, arrows: 'to', dashes: true },
-  { from: 'p7-release-note',to: 'p7-release',   color: '#6c6f85', width: 2, arrows: 'to', dashes: true },
-  { from: 'p7-release',    to: 'p7-announce',   color: '#6c6f85', width: 2, arrows: 'to', dashes: true },
+  { from: 'g-test-done',   to: 'p7-final',      color:'#6c6f85', width: 4, arrows: 'to' },
+  { from: 'p7-final',      to: 'p7-rollback',   color:'#6c6f85', width: 4, arrows: 'to' },
+  { from: 'p7-final',      to: 'p7-doc',        color:'#6c6f85', width: 2, arrows: 'to', dashes: true },
+  { from: 'p7-final',      to: 'p7-release-note',color:'#6c6f85', width: 2, arrows: 'to', dashes: true },
+  { from: 'p7-rollback',   to: 'p7-migration',  color:'#6c6f85', width: 4, arrows: 'to' },
+  { from: 'p7-migration',  to: 'p7-release',    color:'#6c6f85', width: 4, arrows: 'to' },
+  { from: 'p7-doc',        to: 'p7-release',    color:'#6c6f85', width: 2, arrows: 'to', dashes: true },
+  { from: 'p7-release-note',to: 'p7-release',   color:'#6c6f85', width: 2, arrows: 'to', dashes: true },
+  { from: 'p7-release',    to: 'p7-announce',   color:'#6c6f85', width: 2, arrows: 'to', dashes: true },
   // リリース前FB
-  { from: 'p7-final',      to: 'p6-bugfix',     color: '#d20f39', width: 2.5, arrows: 'to', dashes: true, title: '問題→修正' },
+  { from: 'p7-final',      to: 'p6-bugfix',     color:'#6c6f85', width: 2.5, arrows: 'to', dashes: true, title: '問題→修正' },
 
   // ===== 運用 =====
-  { from: 'p7-release',    to: 'p8-ops-start',  color: '#1e66f5', width: 4, arrows: 'to' },
-  { from: 'p8-ops-start',  to: 'p8-incident',   color: '#6c6f85', width: 2, arrows: 'to', dashes: true },
-  { from: 'p8-ops-start',  to: 'p8-slo',        color: '#1e66f5', width: 4, arrows: 'to' },
-  { from: 'p8-slo',        to: 'p8-monitor-op', color: '#1e66f5', width: 4, arrows: 'to' },
-  { from: 'p8-monitor-op', to: 'p8-perf',       color: '#6c6f85', width: 2, arrows: 'to', dashes: true },
-  { from: 'p8-monitor-op', to: 'p8-feedback',   color: '#6c6f85', width: 2, arrows: 'to', dashes: true },
-  { from: 'p8-feedback',   to: 'p8-update',     color: '#1e66f5', width: 4, arrows: 'to' },
-  { from: 'p8-update',     to: 'p8-scale',      color: '#6c6f85', width: 2, arrows: 'to', dashes: true },
+  { from: 'p7-release',    to: 'p8-ops-start',  color:'#6c6f85', width: 4, arrows: 'to' },
+  { from: 'p8-ops-start',  to: 'p8-incident',   color:'#6c6f85', width: 2, arrows: 'to', dashes: true },
+  { from: 'p8-ops-start',  to: 'p8-slo',        color:'#6c6f85', width: 4, arrows: 'to' },
+  { from: 'p8-slo',        to: 'p8-monitor-op', color:'#6c6f85', width: 4, arrows: 'to' },
+  { from: 'p8-monitor-op', to: 'p8-perf',       color:'#6c6f85', width: 2, arrows: 'to', dashes: true },
+  { from: 'p8-monitor-op', to: 'p8-feedback',   color:'#6c6f85', width: 2, arrows: 'to', dashes: true },
+  { from: 'p8-feedback',   to: 'p8-update',     color:'#6c6f85', width: 4, arrows: 'to' },
+  { from: 'p8-update',     to: 'p8-scale',      color:'#6c6f85', width: 2, arrows: 'to', dashes: true },
   // GOAL（継続的運用）
-  { from: 'p8-scale',      to: 'goal',          color: '#6c6f85', width: 2, arrows: 'to', dashes: true, title: '継続的改善' },
-  { from: 'p7-announce',   to: 'goal',          color: '#6c6f85', width: 2, arrows: 'to', dashes: true, title: '初回リリース達成' },
+  { from: 'p8-scale',      to: 'goal',          color:'#6c6f85', width: 2, arrows: 'to', dashes: true, title: '継続的改善' },
+  { from: 'p7-announce',   to: 'goal',          color:'#6c6f85', width: 2, arrows: 'to', dashes: true, title: '初回リリース達成' },
 
   // ===== トラブル (運用中) =====
-  { from: 'p8-monitor-op', to: 'tr-downtime',   color: '#d20f39', width: 2.5, arrows: 'to', dashes: true, title: '障害検知' },
-  { from: 'p8-monitor-op', to: 'tr-perf-down',  color: '#d20f39', width: 2.5, arrows: 'to', dashes: true, title: '閾値超過' },
-  { from: 'p8-update',     to: 'tr-bug-prod',   color: '#d20f39', width: 2.5, arrows: 'to', dashes: true, title: 'デグレ' },
-  { from: 'p8-perf',       to: 'tr-perf-down',  color: '#d20f39', width: 2.5, arrows: 'to', dashes: true, title: '改善不足' },
+  { from: 'p8-monitor-op', to: 'tr-downtime',   color:'#6c6f85', width: 2.5, arrows: 'to', dashes: true, title: '障害検知' },
+  { from: 'p8-monitor-op', to: 'tr-perf-down',  color:'#6c6f85', width: 2.5, arrows: 'to', dashes: true, title: '閾値超過' },
+  { from: 'p8-update',     to: 'tr-bug-prod',   color:'#6c6f85', width: 2.5, arrows: 'to', dashes: true, title: 'デグレ' },
+  { from: 'p8-perf',       to: 'tr-perf-down',  color:'#6c6f85', width: 2.5, arrows: 'to', dashes: true, title: '改善不足' },
   // トラブル→報告
-  { from: 'tr-downtime',   to: 'tr-report',     color: '#d20f39', width: 2.5, arrows: 'to', dashes: true },
-  { from: 'tr-leak',       to: 'tr-report',     color: '#d20f39', width: 2.5, arrows: 'to', dashes: true },
-  { from: 'tr-perf-down',  to: 'tr-report',     color: '#d20f39', width: 2.5, arrows: 'to', dashes: true },
-  { from: 'tr-bug-prod',   to: 'tr-report',     color: '#d20f39', width: 2.5, arrows: 'to', dashes: true },
+  { from: 'tr-downtime',   to: 'tr-report',     color:'#6c6f85', width: 2.5, arrows: 'to', dashes: true },
+  { from: 'tr-leak',       to: 'tr-report',     color:'#6c6f85', width: 2.5, arrows: 'to', dashes: true },
+  { from: 'tr-perf-down',  to: 'tr-report',     color:'#6c6f85', width: 2.5, arrows: 'to', dashes: true },
+  { from: 'tr-bug-prod',   to: 'tr-report',     color:'#6c6f85', width: 2.5, arrows: 'to', dashes: true },
   // 報告→復旧/改善
-  { from: 'tr-report',     to: 'p8-ops-start',  color: '#d20f39', width: 2.5, arrows: 'to', dashes: true, title: '復旧→運用再開' },
-  { from: 'tr-report',     to: 'p6-bugfix',     color: '#d20f39', width: 2.5, arrows: 'to', dashes: true, title: '根本修正' },
-  { from: 'tr-report',     to: 'p8-perf',       color: '#d20f39', width: 2.5, arrows: 'to', dashes: true, title: '性能改善' },
-];
-
-// ===== vis-network 設定 =====
-var container = document.getElementById('network');
-var data = {
-  nodes: new vis.DataSet(nodes),
-  edges: new vis.DataSet(edges),
-};
-var options = {
-  autoResize: true,
-  edges: {
-    smooth: { type: 'curvedCW', roundness: 0.1 },
-    font: { size: 10, color: '#5c5f73', background: '#eff1f5', strokeWidth: 0 },
-  },
-  physics: {
-    enabled: true,
-    solver: 'forceAtlas2Based',
-    forceAtlas2Based: {
-      gravitationalConstant: -60,
-      centralGravity: 0.005,
-      springLength: 170,
-      springConstant: 0.035,
-      damping: 0.5,
-    },
-    stabilization: {
-      enabled: true,
-      iterations: 500,
-      updateInterval: 25,
-    },
-    maxVelocity: 6,
-    minVelocity: 0.5,
-  },
-  interaction: {
-    dragNodes: true,
-    dragView: true,
-    hover: true,
-    zoomView: true,
-  },
-};
-var network = new vis.Network(container, data, options);
-network.fit({ animation: false });
-</script>
-</body>
-</html>
+  { from: 'tr-report',     to: 'p8-ops-start',  color:'#6c6f85', width: 2.5, arrows: 'to', dashes: true, title: '復旧→運用再開' },
+  { from: 'tr-report',     to: 'p6-bugfix',     color:'#6c6f85', width: 2.5, arrows: 'to', dashes: true, title: '根本修正' },
+  { from: 'tr-report',     to: 'p8-perf',       color:'#6c6f85', width: 2.5, arrows: 'to', dashes: true, title: '性能改善' },
+]);
+var container=document.getElementById('mynetwork');
+var data={nodes:nodes,edges:edges};
+var options={nodes:{borderWidth:2,font:{face:'Helvetica Neue,Arial,sans-serif'}},edges:{smooth:{type:'curvedCW',roundness:0.04}},physics:{enabled:true,solver:'forceAtlas2Based',forceAtlas2Based:{gravitationalConstant:-28,centralGravity:0.0001,springLength:200,springConstant:0.03,damping:0.2},maxVelocity:3,stabilization:{iterations:2000,updateInterval:50}},interaction:{dragNodes:true,dragView:true,zoomView:true,hover:true,tooltipDelay:300},layout:{improvedLayout:false}};
+var network=new vis.Network(container,data,options);
+network.on("stabilizationProgress",function(p){document.getElementById('info').innerHTML='安定化中... '+Math.round(p.iterations/options.physics.stabilization.iterations*100)+'%'});
+network.once("stabilizationIterationsDone",function(){document.getElementById('info').innerHTML='Webサービス開発'});
+</script></body></html>

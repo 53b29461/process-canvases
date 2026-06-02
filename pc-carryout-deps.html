@@ -1,376 +1,128 @@
-<!DOCTYPE html>
-<html lang="ja">
-<head>
-  <meta charset="UTF-8">
-  <title>社内PC持ち出し手続き 依存関係グラフ（ANDゲート版）</title>
-  <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { background: #eff1f5; font-family: 'Segoe UI', sans-serif; height: 100vh; display: flex; flex-direction: column; }
-
-    header {
-      padding: 8px 14px;
-      background: #e6e9ef;
-      border-bottom: 1px solid #ccd0da;
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      flex-shrink: 0;
-    }
-    header h1 { font-size: 13px; color: #1e66f5; }
-
-    .controls { display: flex; gap: 6px; margin-left: auto; }
-    .controls button {
-      background: #ccd0da; border: 1px solid #bcc0cc; color: #4c4f69;
-      border-radius: 6px; padding: 4px 11px; cursor: pointer; font-size: 12px;
-    }
-    .controls button:hover { background: #bcc0cc; }
-    .hint { font-size: 11px; color: #9ca0b0; }
-
-    .legend {
-      display: flex;
-      gap: 12px;
-      padding: 5px 14px;
-      background: #e6e9ef;
-      border-bottom: 1px solid #ccd0da;
-      flex-shrink: 0;
-      flex-wrap: wrap;
-      align-items: center;
-    }
-    .legend-item { display: flex; align-items: center; gap: 5px; font-size: 11px; color: #5c5f73; }
-    .legend-dot { width: 12px; height: 12px; border-radius: 2px; }
-    .legend-sep { color: #bcc0cc; font-size: 14px; }
-    .legend-line { display: flex; align-items: center; gap: 4px; font-size: 11px; color: #5c5f73; }
-
-    #cy { flex: 1; }
-  </style>
-</head>
-<body>
-
-<header>
-  <h1>社内PC持ち出し手続き — ANDゲート版</h1>
-  <span class="hint">ドラッグ: パン / ホイール: ズーム / Re-layout で再整列</span>
-  <div class="controls">
-    <button onclick="cy.fit()">Fit</button>
-    <button onclick="cy.zoom(cy.zoom() * 1.3); cy.center()">＋</button>
-    <button onclick="cy.zoom(cy.zoom() * 0.75); cy.center()">－</button>
-    <button onclick="cy.layout(layout).run()">Re-layout</button>
-  </div>
-</header>
-
-<div class="legend">
-  <div class="legend-item"><div class="legend-dot" style="background:#e6e9ef;border:2px solid:#1e66f5"></div>START / GOAL</div>
-  <div class="legend-sep">|</div>
-  <div class="legend-item"><div class="legend-dot" style="background:#dce0e8;border:1px solid:#bcc0cc"></div>申請・承認</div>
-  <div class="legend-sep">|</div>
-  <div class="legend-item"><div class="legend-dot" style="background:#8caaee"></div>事前準備</div>
-  <div class="legend-sep">|</div>
-  <div class="legend-item"><div class="legend-dot" style="background:#74c7ec"></div>持ち出し</div>
-  <div class="legend-sep">|</div>
-  <div class="legend-item"><div class="legend-dot" style="background:#a6e3a1"></div>業務中</div>
-  <div class="legend-sep">|</div>
-  <div class="legend-item"><div class="legend-dot" style="background:#fe640b"></div>返却</div>
-  <div class="legend-sep">|</div>
-  <div class="legend-item"><div class="legend-dot" style="background:#d20f39;color:#fff"></div>トラブル</div>
-  <div class="legend-sep">|</div>
-  <div class="legend-item"><div class="legend-dot" style="background:#df8e1d"></div>完了</div>
-  <div class="legend-sep">|</div>
-  <div class="legend-item"><div class="legend-dot" style="background:#fff;border:2px dashed #40a02b"></div>ANDゲート</div>
-  <div class="legend-sep">|</div>
-  <div class="legend-line">
-    <svg width="28" height="10"><line x1="0" y1="5" x2="28" y2="5" stroke="#1e66f5" stroke-width="3"/></svg> メイン
-  </div>
-  <div class="legend-line">
-    <svg width="28" height="10"><line x1="0" y1="5" x2="28" y2="5" stroke="#6c6f85" stroke-width="2" stroke-dasharray="6,3"/></svg> 並行
-  </div>
-  <div class="legend-line">
-    <svg width="28" height="10"><line x1="0" y1="5" x2="28" y2="5" stroke="#d20f39" stroke-width="2" stroke-dasharray="3,3"/></svg> フィードバック
-  </div>
+<!doctype html>
+<html><head><meta charset="utf-8"><title>社内PC持ち出し手続き 依存関係グラフ（ANDゲート版）</title>
+<script src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#eff1f5;font-family:'Helvetica Neue',Arial,sans-serif;overflow:hidden}
+#mynetwork{width:100vw;height:100vh}
+#controls{position:fixed;bottom:20px;right:20px;z-index:10;display:flex;gap:8px}
+#controls button{padding:8px 16px;background:#ffffff;border:2px solid #9ca0b0;border-radius:8px;cursor:pointer;font-size:20px;color:#4c4f69;transition:all .2s}
+#controls button:hover{background:#1e66f5;color:#fff;border-color:#1e66f5}
+#info{position:fixed;top:12px;left:50%;transform:translateX(-50%);z-index:10;background:rgba(255,255,255,.92);padding:6px 18px;border-radius:20px;font-size:18px;color:#4c4f69;border:1px solid #ccd0da;pointer-events:none;white-space:nowrap}
+#stats{position:fixed;bottom:20px;left:20px;z-index:10;background:rgba(255,255,255,.92);padding:6px 14px;border-radius:20px;font-size:16px;color:#6c6f85;border:1px solid #ccd0da}
+#mynetwork canvas{background:transparent!important}
+</style></head><body>
+<div id="mynetwork"></div>
+<div id="info">社内PC持出要領</div>
+<div id="stats">ドラッグ=パン / ホイール=ズーム / ノードドラッグ可</div>
+<div id="controls">
+<button onclick="network.fit()">Fit</button>
+<button onclick="network.setOptions({physics:{enabled:true,solver:'forceAtlas2Based',forceAtlas2Based:{gravitationalConstant:-28,centralGravity:0.0001,springLength:200,springConstant:0.03,damping:0.2}}});network.stabilize(2000)">Re-layout</button>
+<button onclick="network.setOptions({physics:{enabled:false}})">Freeze</button>
 </div>
-
-<div id="cy"></div>
-
-<script src="https://cdn.jsdelivr.net/npm/cytoscape@3.30.2/dist/cytoscape.min.js"></script>
 <script>
-const nodes = [
-  // ===== START / GOAL =====
-  { data: { id: 'start',        label: 'START' },  classes: 'startgoal' },
-  { data: { id: 'goal',         label: 'GOAL' },   classes: 'startgoal' },
-
-  // ===== 申請・承認 (白) =====
-  { data: { id: 'app-form',     label: '申請書作成' },               classes: 'round   col-white' },
-  { data: { id: 'boss-approve', label: '上司承認' },                 classes: 'diamond col-white' },
-  { data: { id: 'mgmt-approve', label: '管理部門\n承認' },           classes: 'diamond col-white' },
-  { data: { id: 'permit-issue', label: '許可証発行' },               classes: 'hexagon col-white' },
-
-  // ===== 事前準備 (青) =====
-  { data: { id: 'encrypt-check', label: '暗号化確認' },              classes: 'ellipse col-blue' },
-  { data: { id: 'av-update',     label: 'ウイルス\n定義更新' },     classes: 'ellipse col-blue' },
-  { data: { id: 'lock-check',    label: 'ロック機能\n確認' },       classes: 'ellipse col-blue' },
-  { data: { id: 'vpn-test',      label: 'VPN接続\nテスト' },        classes: 'ellipse col-blue' },
-  { data: { id: 'data-check',    label: 'データ確認\n(不要ﾃﾞｰﾀ精査)' }, classes: 'diamond col-blue' },
-  { data: { id: 'device-select', label: '端末選定' },               classes: 'round   col-blue' },
-  { data: { id: 'checkout-log',  label: '貸出簿記入' },              classes: 'barrel  col-blue' },
-  { data: { id: 'prep-done',     label: '事前準備\n完了' },          classes: 'hexagon col-blue' },
-
-  // ===== ANDゲート: セキュリティ確認 =====
-  { data: { id: 'sec-ready',    label: 'セキュリティ確認OK！\n▸ 暗号化確認\n▸ ウイルス定義更新\n▸ ロック機能確認\n▸ VPN接続テスト' }, classes: 'hexagon andgate' },
-
-  // ===== ANDゲート: 事前準備完了 =====
-  { data: { id: 'prep-ready',   label: '事前準備完了OK！\n▸ セキュリティOK\n▸ データ確認\n▸ 貸出簿記入' }, classes: 'hexagon andgate' },
-
-  // ===== 持ち出し (水) =====
-  { data: { id: 'inspect-pc',   label: '端末外観\n確認' },          classes: 'ellipse col-sky' },
-  { data: { id: 'cables',       label: 'ケーブル類\n確認' },        classes: 'ellipse col-sky' },
-  { data: { id: 'bag-prep',     label: 'バッグ準備' },               classes: 'round   col-sky' },
-  { data: { id: 'doc-check',    label: '書類携行\n確認' },           classes: 'diamond col-sky' },
-  { data: { id: 'carry-out',    label: '持ち出し' },                 classes: 'hexagon col-sky' },
-
-  // ===== ANDゲート: 持ち出し準備 =====
-  { data: { id: 'carry-ready',  label: '持ち出し準備OK！\n▸ 端末外観確認\n▸ ケーブル類確認\n▸ 書類携行確認' }, classes: 'hexagon andgate' },
-
-  // ===== 業務中 (緑) =====
-  { data: { id: 'vpn-connect',  label: 'VPN接続' },                  classes: 'ellipse col-green' },
-  { data: { id: 'privacy',      label: 'プライバシー\n対策（画面遮蔽）' }, classes: 'diamond col-green' },
-  { data: { id: 'lock-pc',      label: 'PC施錠管理' },               classes: 'ellipse col-green' },
-  { data: { id: 'cloud-only',   label: 'クラウド\n限定保存' },       classes: 'diamond col-green' },
-  { data: { id: 'checkin',      label: 'チェックイン' },              classes: 'round   col-green' },
-  { data: { id: 'end-cleanup',  label: '業務終了\n後清掃' },         classes: 'round   col-green' },
-  { data: { id: 'remote-done',  label: '外部作業\n完了' },           classes: 'hexagon col-green' },
-
-  // ===== 返却 (橙) =====
-  { data: { id: 'return-notify', label: '返却連絡' },                classes: 'round   col-orange' },
-  { data: { id: 'virus-scan',    label: 'ウイルス\nスキャン' },     classes: 'ellipse col-orange' },
-  { data: { id: 'data-delete',   label: 'データ削除' },              classes: 'ellipse col-orange' },
-  { data: { id: 're-inspect',    label: '再点検' },                   classes: 'diamond col-orange' },
-  { data: { id: 'return-log',    label: '返却記帳' },                 classes: 'barrel  col-orange' },
-  { data: { id: 'report',        label: '業務報告' },                 classes: 'hexagon col-orange' },
-
-  // ===== ANDゲート: 返却完了 =====
-  { data: { id: 'return-ready',  label: '返却完了OK！\n▸ ウイルススキャン\n▸ データ削除\n▸ 再点検' }, classes: 'hexagon andgate' },
-
-  // ===== 完了 (黄) =====
-  { data: { id: 'process-end',   label: 'プロセス\n終了' },          classes: 'hexagon col-yellow' },
-
-  // ===== トラブル (赤) =====
-  { data: { id: 'lost-theft',    label: '紛失・盗難' },               classes: 'diamond col-red' },
-  { data: { id: 'leak',          label: '情報漏洩' },                 classes: 'diamond col-red' },
-  { data: { id: 'breakage',      label: '破損' },                     classes: 'diamond col-red' },
-  { data: { id: 'virus-detect',  label: 'ウイルス\n検出' },          classes: 'diamond col-red' },
-  { data: { id: 'trouble-report', label: 'トラブル\n報告' },         classes: 'round   col-red' },
-];
-
-const edges = [
-  // ===== START → 申請・承認 =====
-  { data: { source: 'start', target: 'app-form' }, classes: 'main' },
-
-  // --- 申請・承認 ---
-  { data: { source: 'app-form',     target: 'boss-approve' }, classes: 'main' },
-  { data: { source: 'boss-approve', target: 'mgmt-approve' }, classes: 'main' },
-  { data: { source: 'mgmt-approve', target: 'permit-issue' }, classes: 'main' },
-  // フィードバック
-  { data: { source: 'boss-approve', target: 'app-form', label: 'NG→申請書修正' }, classes: 'fb' },
-  { data: { source: 'mgmt-approve', target: 'app-form', label: 'NG→再提出' },     classes: 'fb' },
-
-  // --- 許可証→事前準備 ---
-  { data: { source: 'permit-issue', target: 'encrypt-check' }, classes: 'main' },
-  { data: { source: 'permit-issue', target: 'device-select' }, classes: 'main' },
-  { data: { source: 'permit-issue', target: 'data-check' },    classes: 'dashed' },
-
-  // --- 事前準備（AND: sec-ready） ---
-  { data: { source: 'encrypt-check', target: 'sec-ready' }, classes: 'main' },
-  { data: { source: 'av-update',     target: 'sec-ready' }, classes: 'main' },
-  { data: { source: 'lock-check',    target: 'sec-ready' }, classes: 'main' },
-  { data: { source: 'vpn-test',      target: 'sec-ready' }, classes: 'main' },
-  // セルフループ
-  { data: { source: 'encrypt-check', target: 'encrypt-check', label: '未設定→IT相談' }, classes: 'fb' },
-  { data: { source: 'data-check',    target: 'data-check',    label: '過剰→精査' },     classes: 'fb' },
-  // VPN繋がらず→機種変更
-  { data: { source: 'vpn-test',      target: 'device-select', label: '繋がらず→機種変更' }, classes: 'fb' },
-
-  // --- 事前準備（AND: prep-ready） ---
-  { data: { source: 'device-select', target: 'checkout-log' }, classes: 'main' },
-  { data: { source: 'data-check',    target: 'prep-ready' },   classes: 'main' },
-  { data: { source: 'checkout-log',  target: 'prep-ready' },   classes: 'dashed' },
-  { data: { source: 'sec-ready',     target: 'prep-ready' },   classes: 'main' },
-  { data: { source: 'prep-ready',    target: 'prep-done' },    classes: 'main' },
-
-  // --- 事前準備→持ち出し ---
-  { data: { source: 'prep-done', target: 'inspect-pc' }, classes: 'main' },
-  { data: { source: 'prep-done', target: 'bag-prep' },   classes: 'dashed' },
-
-  // --- 持ち出し（AND: carry-ready） ---
-  { data: { source: 'inspect-pc',  target: 'carry-ready' }, classes: 'main' },
-  { data: { source: 'cables',      target: 'carry-ready' }, classes: 'main' },
-  { data: { source: 'bag-prep',    target: 'doc-check' },   classes: 'main' },
-  { data: { source: 'doc-check',   target: 'carry-ready' }, classes: 'main' },
-  { data: { source: 'carry-ready', target: 'carry-out' },   classes: 'main' },
-  // フィードバック
-  { data: { source: 'doc-check', target: 'permit-issue', label: '許可証不携帯→再発行' }, classes: 'fb' },
-
-  // --- 持ち出し→業務中 ---
-  { data: { source: 'carry-out', target: 'vpn-connect' }, classes: 'main' },
-  // トラブル分岐
-  { data: { source: 'carry-out', target: 'lost-theft', label: '紛失・盗難' }, classes: 'fb' },
-  { data: { source: 'carry-out', target: 'breakage',   label: '落下・破損' }, classes: 'fb' },
-
-  // --- 業務中 ---
-  { data: { source: 'vpn-connect',  target: 'privacy' },     classes: 'main' },
-  { data: { source: 'privacy',      target: 'lock-pc' },     classes: 'main' },
-  { data: { source: 'lock-pc',      target: 'cloud-only' },  classes: 'main' },
-  { data: { source: 'cloud-only',   target: 'checkin' },     classes: 'main' },
-  { data: { source: 'checkin',      target: 'end-cleanup' }, classes: 'main' },
-  { data: { source: 'end-cleanup',  target: 'remote-done' }, classes: 'main' },
-  // フィードバック
-  { data: { source: 'privacy',    target: 'leak', label: 'のぞき見' },     classes: 'fb' },
-  { data: { source: 'cloud-only', target: 'leak', label: '誤ローカル保存' }, classes: 'fb' },
-
-  // --- 業務中→返却 ---
-  { data: { source: 'remote-done', target: 'return-notify' }, classes: 'main' },
-
-  // --- 返却（AND: return-ready） ---
-  { data: { source: 'return-notify', target: 'virus-scan' },  classes: 'main' },
-  { data: { source: 'virus-scan',    target: 'return-ready' }, classes: 'main' },
-  { data: { source: 'data-delete',   target: 'return-ready' }, classes: 'main' },
-  { data: { source: 're-inspect',    target: 'return-ready' }, classes: 'main' },
-  { data: { source: 'return-ready',  target: 'return-log' },   classes: 'main' },
-  { data: { source: 'return-log',    target: 'report' },       classes: 'main' },
-  // フィードバック
-  { data: { source: 'virus-scan',  target: 'virus-detect', label: 'ウイルス検出' }, classes: 'fb' },
-  { data: { source: 're-inspect',  target: 'breakage',     label: '破損発見' },     classes: 'fb' },
-
-  // --- トラブル ---
-  { data: { source: 'lost-theft',   target: 'trouble-report', label: '紛失・盗難報告' }, classes: 'fb' },
-  { data: { source: 'leak',         target: 'trouble-report', label: '漏洩報告' },       classes: 'fb' },
-  { data: { source: 'breakage',     target: 'trouble-report', label: '破損報告' },       classes: 'fb' },
-  { data: { source: 'virus-detect', target: 'trouble-report', label: '検出報告' },       classes: 'fb' },
-
-  // --- 返却→完了 ---
-  { data: { source: 'report',       target: 'process-end' }, classes: 'main' },
-  { data: { source: 'trouble-report', target: 'process-end', label: '報告後終了' }, classes: 'dashed' },
-
-  // ===== GOAL =====
-  { data: { source: 'process-end', target: 'goal' }, classes: 'main' },
-];
-
-const elements = { nodes, edges };
-const layout = {
-  name: 'cose',
-  nodeRepulsion: 20000,
-  idealEdgeLength: 190,
-  gravity: 0.7,
-  numIter: 1200,
-  animate: true,
-  animationDuration: 500
-};
-
-const cy = cytoscape({
-  container: document.getElementById('cy'),
-  elements,
-  style: [
-    {
-      selector: 'node',
-      style: {
-        label: 'data(label)',
-        'text-wrap': 'wrap',
-        'text-max-width': 110,
-        'font-size': 12,
-        'font-family': '"Noto Sans JP", "Segoe UI", sans-serif',
-        color: '#4c4f69',
-        'text-halign': 'center',
-        'text-valign': 'center',
-        'font-weight': 'bold',
-        'border-width': 2,
-        'border-color': '#9ca0b0',
-        width: 120,
-        height: 72,
-      }
-    },
-    // START / GOAL
-    {
-      selector: '.startgoal',
-      style: {
-        'background-color': '#e6e9ef',
-        'border-color': '#1e66f5',
-        'border-width': 4,
-        color: '#1e66f5',
-        'font-size': 16,
-        shape: 'round-octagon',
-        width: 100,
-        height: 70,
-      }
-    },
-    // Phase colors (Catppuccin Latte light mode)
-    { selector: '.col-white',  style: { 'background-color': '#dce0e8', 'border-color': '#bcc0cc' } },
-    { selector: '.col-blue',   style: { 'background-color': '#8caaee', 'border-color': '#7c9ae6', color: '#222' } },
-    { selector: '.col-sky',    style: { 'background-color': '#74c7ec', 'border-color': '#5bb9e3', color: '#222' } },
-    { selector: '.col-green',  style: { 'background-color': '#a6e3a1', 'border-color': '#85d687', color: '#333' } },
-    { selector: '.col-orange', style: { 'background-color': '#fe640b', 'border-color': '#e65a0a', color: '#fff' } },
-    { selector: '.col-red',    style: { 'background-color': '#d20f39', 'border-color': '#bb0d33', color: '#fff' } },
-    { selector: '.col-yellow', style: { 'background-color': '#df8e1d', 'border-color': '#c8801a', 'border-width': 3, color: '#222' } },
-    // Shapes
-    { selector: '.ellipse', style: { shape: 'ellipse' } },
-    { selector: '.hexagon', style: { shape: 'hexagon', width: 130, height: 80 } },
-    { selector: '.diamond', style: { shape: 'diamond', width: 100, height: 90 } },
-    { selector: '.round',   style: { shape: 'roundrectangle' } },
-    { selector: '.barrel',  style: { shape: 'round-rectangle', width: 140, height: 80 } },
-    // ANDゲート（白背景、緑破線枠、チェックリスト表示）
-    {
-      selector: '.andgate',
-      style: {
-        'background-color': '#fff',
-        'border-color': '#40a02b',
-        'border-width': 4,
-        'border-style': 'dashed',
-        color: '#196c21',
-        shape: 'hexagon',
-        width: 140,
-        height: 90,
-        'font-size': 11,
-      }
-    },
-    // Edges
-    {
-      selector: 'edge',
-      style: {
-        width: 2,
-        'line-color': '#6c6f85',
-        'target-arrow-color': '#6c6f85',
-        'target-arrow-shape': 'triangle',
-        'arrow-scale': 1,
-        'curve-style': 'bezier',
-        label: 'data(label)',
-        'font-size': 10,
-        color: '#5c5f73',
-        'text-background-color': '#eff1f5',
-        'text-background-opacity': 0.85,
-        'text-background-padding': 2,
-      }
-    },
-    // メイン依存（青実線）
-    { selector: '.main', style: { width: 4, 'line-color': '#1e66f5', 'target-arrow-color': '#1e66f5', 'z-index': 10 } },
-    // 並行可能（灰点線）
-    { selector: '.dashed', style: { 'line-style': 'dashed', 'line-dash-pattern': [6, 4], 'z-index': 5 } },
-    // フィードバック（赤破線）
-    {
-      selector: '.fb',
-      style: {
-        'line-style': 'dashed',
-        'line-dash-pattern': [3, 3],
-        width: 2.5,
-        'line-color': '#d20f39',
-        'target-arrow-color': '#d20f39',
-        'z-index': 15,
-        'target-arrow-shape': 'triangle-backcurve',
-        color: '#d20f39',
-      }
-    },
-    { selector: 'node:selected', style: { 'border-color': '#df8e1d', 'border-width': 3 } },
-  ],
-  layout,
-  wheelSensitivity: 0.3,
-  minZoom: 0.2,
-  maxZoom: 4,
-});
-</script>
-</body>
-</html>
+var nodes=new vis.DataSet([{id:'start',label:'START',shape:'round-octagon',size:54,color:{background:'#1e66f5',border:'#1e66f5'},font:{color:'#ffffff',size:21,bold:true}},
+  {id:'goal',label:'GOAL',shape:'round-octagon',size:54,color:{background:'#1e66f5',border:'#1e66f5'},font:{color:'#ffffff',size:21,bold:true}},
+  {id:'app-form',label:'申請書作成',shape:'round-octagon',size:39,color:{background:'#dce0e8',border:'#9ca0b0'},font:{color:'#1a1a2e',size:16}},
+  {id:'boss-approve',label:'上司承認',shape:'round-octagon',size:39,color:{background:'#dce0e8',border:'#9ca0b0'},font:{color:'#1a1a2e',size:16}},
+  {id:'mgmt-approve',label:'管理部門\n承認',shape:'round-octagon',size:39,color:{background:'#dce0e8',border:'#9ca0b0'},font:{color:'#1a1a2e',size:16}},
+  {id:'permit-issue',label:'許可証発行',shape:'round-octagon',size:45,color:{background:'#dce0e8',border:'#9ca0b0'},font:{color:'#1a1a2e',size:16}},
+  {id:'encrypt-check',label:'暗号化確認',shape:'round-octagon',size:39,color:{background:'#8caaee',border:'#5c7cd8'},font:{color:'#1a1a2e',size:16}},
+  {id:'av-update',label:'ウイルス\n定義更新',shape:'round-octagon',size:39,color:{background:'#8caaee',border:'#5c7cd8'},font:{color:'#1a1a2e',size:16}},
+  {id:'lock-check',label:'ロック機能\n確認',shape:'round-octagon',size:39,color:{background:'#8caaee',border:'#5c7cd8'},font:{color:'#1a1a2e',size:16}},
+  {id:'vpn-test',label:'VPN接続\nテスト',shape:'round-octagon',size:39,color:{background:'#8caaee',border:'#5c7cd8'},font:{color:'#1a1a2e',size:16}},
+  {id:'data-check',label:'データ確認\n(不要ﾃﾞｰﾀ精査)',shape:'round-octagon',size:39,color:{background:'#8caaee',border:'#5c7cd8'},font:{color:'#1a1a2e',size:16}},
+  {id:'device-select',label:'端末選定',shape:'round-octagon',size:39,color:{background:'#8caaee',border:'#5c7cd8'},font:{color:'#1a1a2e',size:16}},
+  {id:'checkout-log',label:'貸出簿記入',shape:'round-octagon',size:39,color:{background:'#8caaee',border:'#5c7cd8'},font:{color:'#1a1a2e',size:16}},
+  {id:'prep-done',label:'事前準備\n完了',shape:'round-octagon',size:45,color:{background:'#8caaee',border:'#5c7cd8'},font:{color:'#1a1a2e',size:16}},
+  {id:'sec-ready',label:'セキュリティ確認OK！\n▸ 暗号化確認\n▸ ウイルス定義更新\n▸ ロック機能確認\n▸ VPN接続テスト',shape:'round-octagon',size:48,color:{background:'#ffffff',border:'#40a02b'},font:{color:'#1a1a2e',size:16}},
+  {id:'prep-ready',label:'事前準備完了OK！\n▸ セキュリティOK\n▸ データ確認\n▸ 貸出簿記入',shape:'round-octagon',size:48,color:{background:'#ffffff',border:'#40a02b'},font:{color:'#1a1a2e',size:16}},
+  {id:'inspect-pc',label:'端末外観\n確認',shape:'round-octagon',size:39,color:{background:'#74c7ec',border:'#5bb9e3'},font:{color:'#1a1a2e',size:16}},
+  {id:'cables',label:'ケーブル類\n確認',shape:'round-octagon',size:39,color:{background:'#74c7ec',border:'#5bb9e3'},font:{color:'#1a1a2e',size:16}},
+  {id:'bag-prep',label:'バッグ準備',shape:'round-octagon',size:39,color:{background:'#74c7ec',border:'#5bb9e3'},font:{color:'#1a1a2e',size:16}},
+  {id:'doc-check',label:'書類携行\n確認',shape:'round-octagon',size:39,color:{background:'#74c7ec',border:'#5bb9e3'},font:{color:'#1a1a2e',size:16}},
+  {id:'carry-out',label:'持ち出し',shape:'round-octagon',size:45,color:{background:'#74c7ec',border:'#5bb9e3'},font:{color:'#1a1a2e',size:16}},
+  {id:'carry-ready',label:'持ち出し準備OK！\n▸ 端末外観確認\n▸ ケーブル類確認\n▸ 書類携行確認',shape:'round-octagon',size:48,color:{background:'#ffffff',border:'#40a02b'},font:{color:'#1a1a2e',size:16}},
+  {id:'vpn-connect',label:'VPN接続',shape:'round-octagon',size:39,color:{background:'#a6e3a1',border:'#85d687'},font:{color:'#1a1a2e',size:16}},
+  {id:'privacy',label:'プライバシー\n対策（画面遮蔽）',shape:'round-octagon',size:39,color:{background:'#a6e3a1',border:'#85d687'},font:{color:'#1a1a2e',size:16}},
+  {id:'lock-pc',label:'PC施錠管理',shape:'round-octagon',size:39,color:{background:'#a6e3a1',border:'#85d687'},font:{color:'#1a1a2e',size:16}},
+  {id:'cloud-only',label:'クラウド\n限定保存',shape:'round-octagon',size:39,color:{background:'#a6e3a1',border:'#85d687'},font:{color:'#1a1a2e',size:16}},
+  {id:'checkin',label:'チェックイン',shape:'round-octagon',size:39,color:{background:'#a6e3a1',border:'#85d687'},font:{color:'#1a1a2e',size:16}},
+  {id:'end-cleanup',label:'業務終了\n後清掃',shape:'round-octagon',size:39,color:{background:'#a6e3a1',border:'#85d687'},font:{color:'#1a1a2e',size:16}},
+  {id:'remote-done',label:'外部作業\n完了',shape:'round-octagon',size:45,color:{background:'#a6e3a1',border:'#85d687'},font:{color:'#1a1a2e',size:16}},
+  {id:'return-notify',label:'返却連絡',shape:'round-octagon',size:39,color:{background:'#fe640b',border:'#e65a0a'},font:{color:'#1a1a2e',size:16}},
+  {id:'virus-scan',label:'ウイルス\nスキャン',shape:'round-octagon',size:39,color:{background:'#fe640b',border:'#e65a0a'},font:{color:'#1a1a2e',size:16}},
+  {id:'data-delete',label:'データ削除',shape:'round-octagon',size:39,color:{background:'#fe640b',border:'#e65a0a'},font:{color:'#1a1a2e',size:16}},
+  {id:'re-inspect',label:'再点検',shape:'round-octagon',size:39,color:{background:'#fe640b',border:'#e65a0a'},font:{color:'#1a1a2e',size:16}},
+  {id:'return-log',label:'返却記帳',shape:'round-octagon',size:39,color:{background:'#fe640b',border:'#e65a0a'},font:{color:'#1a1a2e',size:16}},
+  {id:'report',label:'業務報告',shape:'round-octagon',size:45,color:{background:'#fe640b',border:'#e65a0a'},font:{color:'#1a1a2e',size:16}},
+  {id:'return-ready',label:'返却完了OK！\n▸ ウイルススキャン\n▸ データ削除\n▸ 再点検',shape:'round-octagon',size:48,color:{background:'#ffffff',border:'#40a02b'},font:{color:'#1a1a2e',size:16}},
+  {id:'process-end',label:'プロセス\n終了',shape:'round-octagon',size:45,color:{background:'#df8e1d',border:'#c8801a'},font:{color:'#1a1a2e',size:16}},
+  {id:'lost-theft',label:'紛失・盗難',shape:'round-octagon',size:39,color:{background:'#d20f39',border:'#bb0d33'},font:{color:'#ffffff',size:16}},
+  {id:'leak',label:'情報漏洩',shape:'round-octagon',size:39,color:{background:'#d20f39',border:'#bb0d33'},font:{color:'#ffffff',size:16}},
+  {id:'breakage',label:'破損',shape:'round-octagon',size:39,color:{background:'#d20f39',border:'#bb0d33'},font:{color:'#ffffff',size:16}},
+  {id:'virus-detect',label:'ウイルス\n検出',shape:'round-octagon',size:39,color:{background:'#d20f39',border:'#bb0d33'},font:{color:'#ffffff',size:16}},
+  {id:'trouble-report',label:'トラブル\n報告',shape:'round-octagon',size:39,color:{background:'#d20f39',border:'#bb0d33'},font:{color:'#ffffff',size:16}}]);
+var edges=new vis.DataSet([{from:'start',to:'app-form',color:{color:'#6c6f85'},width:4},
+  {from:'app-form',to:'boss-approve',color:{color:'#6c6f85'},width:4},
+  {from:'boss-approve',to:'mgmt-approve',color:{color:'#6c6f85'},width:4},
+  {from:'mgmt-approve',to:'permit-issue',color:{color:'#6c6f85'},width:4},
+  {from:'boss-approve',to:'app-form',color:{color:'#6c6f85'},width:2.5,dashes:[3,3],label:'NG→申請書修正'},
+  {from:'mgmt-approve',to:'app-form',color:{color:'#6c6f85'},width:2.5,dashes:[3,3],label:'NG→再提出'},
+  {from:'permit-issue',to:'encrypt-check',color:{color:'#6c6f85'},width:4},
+  {from:'permit-issue',to:'device-select',color:{color:'#6c6f85'},width:4},
+  {from:'permit-issue',to:'data-check',color:{color:'#6c6f85'},width:2,dashes:[6,4]},
+  {from:'encrypt-check',to:'sec-ready',color:{color:'#6c6f85'},width:4},
+  {from:'av-update',to:'sec-ready',color:{color:'#6c6f85'},width:4},
+  {from:'lock-check',to:'sec-ready',color:{color:'#6c6f85'},width:4},
+  {from:'vpn-test',to:'sec-ready',color:{color:'#6c6f85'},width:4},
+  {from:'encrypt-check',to:'encrypt-check',color:{color:'#6c6f85'},width:2.5,dashes:[3,3],label:'未設定→IT相談'},
+  {from:'data-check',to:'data-check',color:{color:'#6c6f85'},width:2.5,dashes:[3,3],label:'過剰→精査'},
+  {from:'vpn-test',to:'device-select',color:{color:'#6c6f85'},width:2.5,dashes:[3,3],label:'繋がらず→機種変更'},
+  {from:'device-select',to:'checkout-log',color:{color:'#6c6f85'},width:4},
+  {from:'data-check',to:'prep-ready',color:{color:'#6c6f85'},width:4},
+  {from:'checkout-log',to:'prep-ready',color:{color:'#6c6f85'},width:2,dashes:[6,4]},
+  {from:'sec-ready',to:'prep-ready',color:{color:'#6c6f85'},width:4},
+  {from:'prep-ready',to:'prep-done',color:{color:'#6c6f85'},width:4},
+  {from:'prep-done',to:'inspect-pc',color:{color:'#6c6f85'},width:4},
+  {from:'prep-done',to:'bag-prep',color:{color:'#6c6f85'},width:2,dashes:[6,4]},
+  {from:'inspect-pc',to:'carry-ready',color:{color:'#6c6f85'},width:4},
+  {from:'cables',to:'carry-ready',color:{color:'#6c6f85'},width:4},
+  {from:'bag-prep',to:'doc-check',color:{color:'#6c6f85'},width:4},
+  {from:'doc-check',to:'carry-ready',color:{color:'#6c6f85'},width:4},
+  {from:'carry-ready',to:'carry-out',color:{color:'#6c6f85'},width:4},
+  {from:'doc-check',to:'permit-issue',color:{color:'#6c6f85'},width:2.5,dashes:[3,3],label:'許可証不携帯→再発行'},
+  {from:'carry-out',to:'vpn-connect',color:{color:'#6c6f85'},width:4},
+  {from:'carry-out',to:'lost-theft',color:{color:'#6c6f85'},width:2.5,dashes:[3,3],label:'紛失・盗難'},
+  {from:'carry-out',to:'breakage',color:{color:'#6c6f85'},width:2.5,dashes:[3,3],label:'落下・破損'},
+  {from:'vpn-connect',to:'privacy',color:{color:'#6c6f85'},width:4},
+  {from:'privacy',to:'lock-pc',color:{color:'#6c6f85'},width:4},
+  {from:'lock-pc',to:'cloud-only',color:{color:'#6c6f85'},width:4},
+  {from:'cloud-only',to:'checkin',color:{color:'#6c6f85'},width:4},
+  {from:'checkin',to:'end-cleanup',color:{color:'#6c6f85'},width:4},
+  {from:'end-cleanup',to:'remote-done',color:{color:'#6c6f85'},width:4},
+  {from:'privacy',to:'leak',color:{color:'#6c6f85'},width:2.5,dashes:[3,3],label:'のぞき見'},
+  {from:'cloud-only',to:'leak',color:{color:'#6c6f85'},width:2.5,dashes:[3,3],label:'誤ローカル保存'},
+  {from:'remote-done',to:'return-notify',color:{color:'#6c6f85'},width:4},
+  {from:'return-notify',to:'virus-scan',color:{color:'#6c6f85'},width:4},
+  {from:'virus-scan',to:'return-ready',color:{color:'#6c6f85'},width:4},
+  {from:'data-delete',to:'return-ready',color:{color:'#6c6f85'},width:4},
+  {from:'re-inspect',to:'return-ready',color:{color:'#6c6f85'},width:4},
+  {from:'return-ready',to:'return-log',color:{color:'#6c6f85'},width:4},
+  {from:'return-log',to:'report',color:{color:'#6c6f85'},width:4},
+  {from:'virus-scan',to:'virus-detect',color:{color:'#6c6f85'},width:2.5,dashes:[3,3],label:'ウイルス検出'},
+  {from:'re-inspect',to:'breakage',color:{color:'#6c6f85'},width:2.5,dashes:[3,3],label:'破損発見'},
+  {from:'lost-theft',to:'trouble-report',color:{color:'#6c6f85'},width:2.5,dashes:[3,3],label:'紛失・盗難報告'},
+  {from:'leak',to:'trouble-report',color:{color:'#6c6f85'},width:2.5,dashes:[3,3],label:'漏洩報告'},
+  {from:'breakage',to:'trouble-report',color:{color:'#6c6f85'},width:2.5,dashes:[3,3],label:'破損報告'},
+  {from:'virus-detect',to:'trouble-report',color:{color:'#6c6f85'},width:2.5,dashes:[3,3],label:'検出報告'},
+  {from:'report',to:'process-end',color:{color:'#6c6f85'},width:4},
+  {from:'trouble-report',to:'process-end',color:{color:'#6c6f85'},width:2,dashes:[6,4],label:'報告後終了'},
+  {from:'process-end',to:'goal',color:{color:'#6c6f85'},width:4}]);
+var container=document.getElementById('mynetwork');
+var data={nodes:nodes,edges:edges};
+var options={nodes:{borderWidth:2,font:{face:'Helvetica Neue,Arial,sans-serif'}},edges:{smooth:{type:'curvedCW',roundness:0.04}},physics:{enabled:true,solver:'forceAtlas2Based',forceAtlas2Based:{gravitationalConstant:-28,centralGravity:0.0001,springLength:200,springConstant:0.03,damping:0.2},maxVelocity:3,stabilization:{iterations:2000,updateInterval:50}},interaction:{dragNodes:true,dragView:true,zoomView:true,hover:true,tooltipDelay:300},layout:{improvedLayout:false}};
+var network=new vis.Network(container,data,options);
+network.on("stabilizationProgress",function(p){document.getElementById('info').innerHTML='安定化中... '+Math.round(p.iterations/options.physics.stabilization.iterations*100)+'%'});
+network.once("stabilizationIterationsDone",function(){document.getElementById('info').innerHTML='社内PC持出要領'});
+</script></body></html>
