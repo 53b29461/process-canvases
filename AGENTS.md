@@ -11,6 +11,8 @@ Cytoscape.js を用いた業務フロー・工程のグラフ可視化プロジ�
 | 引越し | `moving-deps.html` |
 | PC持ち出し | `pc-carryout-deps.html` |
 | TryHackMe Overpass | `overpass-deps.html` |
+| Webサービス開発 | `webapp-dev-deps.html` |
+| 生活タスク全体マップ | `private/life-management-deps.html`（非公開） |
 
 ## 仕様
 
@@ -20,6 +22,11 @@ Cytoscape.js を用いた業務フロー・工程のグラフ可視化プロジ�
 - ANDゲートノード（緑破線六角形）で依存を明示、マルチペアレントエッジ
 - エッジ: main（青実線=必須） / dashed（灰点線=並行可能） / fb（赤破線=フィードバック）
 - ドラッグ: パン / ホイール: ズーム / Re-layout ボタン
+
+## プライバシー
+
+- 個人情報を含むグラフは `private/` ディレクトリに配置
+- `.gitignore` で `private/` を除外済み（GitHub 非公開）
 
 ## 新規題材追加手順
 
